@@ -1,0 +1,3 @@
+# Mô hình 3D: không chuyển đổi xuống dòng, không diff
+*.STL binary
+*.stl binary

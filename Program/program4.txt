@@ -1,0 +1,16 @@
+﻿# Robot Program File
+# Generated: 2026-08-03 11:20:56
+# Format: BlockType|Parameters
+#
+Move|400|0|150|0|2000
+Delay|100
+Move|275|-228|50|90|1000
+Delay|100
+Move|150|-250.5|150|135|1000
+Delay|100
+Move|25|-273|50|180|1000
+Delay|100
+Move|212.5|-136.5|100|90|1000
+Delay|100
+Move|400|0|150|0|1000
+Delay|100

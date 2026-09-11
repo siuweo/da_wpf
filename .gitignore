@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio / công cụ
+.vs/
+.localpilot/
+*.user
+*.suo
+
+# Dữ liệu phản hồi sinh ra khi chạy (TelemetryCsvLogger)
+Log/*.csv
