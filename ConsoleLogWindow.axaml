@@ -1,0 +1,20 @@
+<Window x:Class="DUC_GUI.ConsoleLogWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="IPC Terminal Status - Hệ Thống Lệnh IPC"
+        Height="400"
+        Width="600"
+        Background="#0C0C0C">
+
+    <ScrollViewer x:Name="LogScroll" Margin="10"
+                  HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+        <SelectableTextBlock x:Name="TxtConsoleLog"
+                             FontFamily="{StaticResource MonoFont}"
+                             FontSize="12"
+                             Foreground="#00FF00"
+                             TextWrapping="Wrap"/>
+    </ScrollViewer>
+</Window>

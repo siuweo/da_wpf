@@ -1,0 +1,403 @@
+<Window x:Class="DUC_GUI.MainWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="using:DUC_GUI.Models"
+        xmlns:c="using:DUC_GUI.Controls"
+        mc:Ignorable="d"
+        Title="SCARA Robot Controller"
+        WindowState="Maximized"
+        Background="White">
+
+    <DockPanel>
+        <!-- ================= THANH MENU ================= -->
+        <Menu DockPanel.Dock="Top" Background="#F0F0F0" Padding="2">
+            <MenuItem Header="File" FontSize="13" FontWeight="SemiBold">
+                <MenuItem Header="Import (.txt)" Command="{Binding ImportProgCommand}"/>
+                <Separator />
+                <MenuItem Header="Save (.txt)" Command="{Binding SaveProgCommand}"/>
+            </MenuItem>
+            <MenuItem Header="Window" FontSize="13" FontWeight="SemiBold">
+                <MenuItem Header="Console" Click="MenuConsole_Click"/>
+            </MenuItem>
+        </Menu>
+
+        <!-- ================= THANH TRẠNG THÁI ================= -->
+        <Border DockPanel.Dock="Bottom" Background="#F5F5F7" BorderBrush="#DCDCDC" BorderThickness="0,1,0,0" Padding="6,3">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Right" Text="{Binding CameraStatus}" VerticalAlignment="Center"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock VerticalAlignment="Center">
+                        <Run Text="IPC:" FontWeight="Bold"/>
+                        <Run Text="{Binding IpcMode, Mode=OneWay}" FontWeight="Bold" Foreground="#005A9E"/>
+                    </TextBlock>
+                    <Rectangle Width="1" Fill="#C8C8C8"/>
+                    <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
+                    <Rectangle Width="1" Fill="#C8C8C8"/>
+                    <TextBlock Text="{Binding DriveStatus}" VerticalAlignment="Center"/>
+                    <Rectangle Width="1" Fill="#C8C8C8"/>
+                    <TextBlock Text="{Binding StepText}" VerticalAlignment="Center"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <Grid ColumnDefinitions="1*,2*,1*">   <!-- bảng điều khiển | mô phỏng 3D | chương trình + JSON -->
+
+            <!-- =================================================================== -->
+            <!-- CỘT 1: CONTROL PANEL                                                  -->
+            <!-- =================================================================== -->
+            <c:GroupBox Grid.Column="0" Margin="5">
+                <c:GroupBox.Header>
+                    <TextBlock Text="CONTROL PANEL" FontWeight="Bold" HorizontalAlignment="Center"/>
+                </c:GroupBox.Header>
+
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="5">
+
+                        <!-- Kết nối IPC: luôn hiển thị -->
+                        <Grid Margin="0,0,0,10" ColumnDefinitions="Auto,*,*,*">
+                            <TextBlock Text="IPC:" Classes="label" Margin="0,0,3,0"/>
+                            <TextBox Grid.Column="1" Text="{Binding IpcAddress}" Classes="input"
+                                     ToolTip.Tip="IP của IPC (127.0.0.1 khi chạy scara_sim trong WSL)"/>
+                            <Button Content="Connect" Grid.Column="2" Margin="3" Height="30" Background="MediumSeaGreen" Foreground="White" FontWeight="Bold"
+                                    Command="{Binding SendCommandToIpcCommand}" CommandParameter="CON"/>
+                            <Button Content="Disconnect" Grid.Column="3" Margin="3" Height="30" Background="IndianRed" Foreground="White" FontWeight="Bold"
+                                    Command="{Binding SendCommandToIpcCommand}" CommandParameter="DIS"/>
+                        </Grid>
+
+                        <!-- Chỉ hiển thị khi IPC xác nhận CON (EtherCAT sẵn sàng) -->
+                        <StackPanel IsVisible="{Binding IsConnectionConfirmed}">
+
+                            <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="0,0,0,10" Margin="0,0,0,10">
+                                <UniformGrid Columns="2">
+                                    <RadioButton Content="Operating Mode" GroupName="MainModeSelector" FontWeight="Bold" HorizontalAlignment="Center"
+                                                 IsChecked="{Binding IsOperatingMode, Mode=TwoWay}"/>
+                                    <RadioButton Content="Teaching Mode" GroupName="MainModeSelector" FontWeight="Bold" HorizontalAlignment="Center"
+                                                 IsChecked="{Binding IsTeachingMode, Mode=TwoWay}"/>
+                                </UniformGrid>
+                            </Border>
+
+                            <!-- ======================= OPERATING MODE ======================= -->
+                            <StackPanel IsVisible="{Binding IsOperatingMode}">
+                                <c:GroupBox Header="BUTTON COMMAND" Margin="0,0,0,10">
+                                    <Grid Margin="5" RowDefinitions="Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="*,*">
+                                        <Button Content="Start" Grid.Row="0" Grid.Column="0" Margin="3" Height="30" Background="DodgerBlue" Foreground="White" FontWeight="Bold"
+                                                Command="{Binding SendCommandToIpcCommand}" CommandParameter="STA"/>
+                                        <Button Content="Stop" Grid.Row="0" Grid.Column="1" Margin="3" Height="30" Background="Crimson" Foreground="White" FontWeight="Bold"
+                                                Command="{Binding SendCommandToIpcCommand}" CommandParameter="STO"/>
+
+                                        <!-- Halt / Resume: trạng thái lấy từ phản hồi IPC -->
+                                        <Button Content="Halt" Grid.Row="1" Grid.Column="0" Margin="3" Height="30" Background="Orange" Foreground="White" FontWeight="Bold"
+                                                Command="{Binding SendCommandToIpcCommand}" CommandParameter="HAL"
+                                                IsVisible="{Binding !IsHalted}"/>
+                                        <Button Content="Resume" Grid.Row="1" Grid.Column="0" Margin="3" Height="30" Background="SteelBlue" Foreground="White" FontWeight="Bold"
+                                                Command="{Binding SendCommandToIpcCommand}" CommandParameter="RES"
+                                                IsVisible="{Binding IsHalted}"/>
+                                        <Button Content="Homing" Grid.Row="1" Grid.Column="1" Margin="3" Height="30" Background="DarkSlateGray" Foreground="White" FontWeight="Bold"
+                                                Command="{Binding SendCommandToIpcCommand}" CommandParameter="HOM"/>
+
+                                        <!-- Dyna / Trajectory: để trống, chưa hỗ trợ -->
+                                        <RadioButton Content="Kinematic" Grid.Row="2" Grid.Column="0" GroupName="ControlMode" FontWeight="Bold" IsChecked="{Binding IsKineMode}" Margin="25,8,0,3"/>
+                                        <RadioButton Content="Dynamics" Grid.Row="2" Grid.Column="1" GroupName="ControlMode" FontWeight="Bold" IsChecked="{Binding IsDynaMode}" Margin="25,8,0,3"
+                                                     IsEnabled="False" ToolTip.Tip="Chưa hỗ trợ – hiện chỉ điều khiển động học"/>
+                                        <RadioButton Content="Point-to-point" Grid.Row="3" Grid.Column="0" GroupName="RobotTask" FontWeight="Bold" IsChecked="{Binding IsP2PTask}" Margin="25,5,0,3"/>
+                                        <RadioButton Content="Trajectory" Grid.Row="3" Grid.Column="1" GroupName="RobotTask" FontWeight="Bold" IsChecked="{Binding IsTrajectoryTask}" Margin="25,5,0,3"
+                                                     IsEnabled="False" ToolTip.Tip="Chưa hỗ trợ – hiện chỉ có Point-to-point"/>
+                                        <RadioButton Content="Once" Grid.Row="4" Grid.Column="0" GroupName="ExecutionMode" FontWeight="Bold" IsChecked="{Binding IsOnceMode}" Margin="25,5,0,5"
+                                                     ToolTip.Tip="Chương trình có IF/ELSE/END (camera) luôn chạy kiểu Once cho mỗi vật"/>
+                                        <RadioButton Content="Loop" Grid.Row="4" Grid.Column="1" GroupName="ExecutionMode" FontWeight="Bold" IsChecked="{Binding IsLoopMode}" Margin="25,5,0,5"
+                                                     ToolTip.Tip="Chỉ áp dụng khi chương trình không có khối IF/ELSE/END"/>
+                                    </Grid>
+                                </c:GroupBox>
+
+                                <c:GroupBox Header="PROGRAM BLOCKS" Margin="0,5,0,0">
+                                    <StackPanel Margin="4">
+                                        <!-- MOVE -->
+                                        <c:GroupBox Header="Move (Z thực tế)" Margin="0,0,0,5" Padding="4">
+                                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                <TextBlock Text="X (mm)" Classes="label"/>
+                                                <TextBox Grid.Column="1" Text="{Binding InputX}" Classes="input"/>
+                                                <TextBlock Grid.Column="2" Text="Y (mm)" Classes="label" Margin="4,0,0,0"/>
+                                                <TextBox Grid.Column="3" Text="{Binding InputY}" Classes="input"/>
+                                                <TextBlock Grid.Row="1" Text="Z (mm)" Classes="label"/>
+                                                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding InputZ}" Classes="input"/>
+                                                <TextBlock Grid.Row="1" Grid.Column="2" Text="Theta (°)" Classes="label" Margin="4,0,0,0"/>
+                                                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding InputTheta}" Classes="input"/>
+                                                <TextBlock Grid.Row="2" Text="Time (ms)" Classes="label"/>
+                                                <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding InputTime}" Classes="input"/>
+                                                <Button Grid.Row="3" Grid.ColumnSpan="4" Content="+ ADD MOVE" Margin="0,4,0,0" Height="26"
+                                                        Background="#1565C0" Foreground="White" FontWeight="Bold" Command="{Binding AddMoveBlockCommand}"/>
+                                            </Grid>
+                                        </c:GroupBox>
+
+                                        <!-- DELAY -->
+                                        <c:GroupBox Header="Delay" Margin="0,0,0,5" Padding="4">
+                                            <DockPanel>
+                                                <TextBlock Text="Delay (ms):" Classes="label"/>
+                                                <Button DockPanel.Dock="Right" Content="+ ADD" Height="26" Padding="8,0"
+                                                        Background="#E65100" Foreground="White" FontWeight="Bold" Command="{Binding AddDelayBlockCommand}"/>
+                                                <TextBox Text="{Binding InputDelayMs}" Classes="input"/>
+                                            </DockPanel>
+                                        </c:GroupBox>
+
+                                        <!-- GPIO -->
+                                        <c:GroupBox Header="GPIO (PLC)" Margin="0,0,0,5" Padding="4">
+                                            <DockPanel>
+                                                <TextBlock Text="PIN:" Classes="label"/>
+                                                <Button DockPanel.Dock="Right" Content="+ ADD" Height="26" Padding="8,0"
+                                                        Background="#1B5E20" Foreground="White" FontWeight="Bold" Command="{Binding AddGpioBlockCommand}"/>
+                                                <RadioButton DockPanel.Dock="Right" GroupName="GpioLevel" Content="1" Margin="4,0" VerticalAlignment="Center" IsChecked="{Binding IsGpioHigh, Mode=TwoWay}"/>
+                                                <RadioButton DockPanel.Dock="Right" GroupName="GpioLevel" Content="0" Margin="4,0" VerticalAlignment="Center" IsChecked="{Binding IsGpioLow, Mode=TwoWay}"/>
+                                                <ComboBox ItemsSource="{Binding GpioPinOptions}" SelectedItem="{Binding InputGpioPin, Mode=TwoWay}" Margin="2,0"/>
+                                            </DockPanel>
+                                        </c:GroupBox>
+
+                                        <!-- CAMERA: IF/ELSE/END + bám & gắp -->
+                                        <c:GroupBox Header="Camera – phân loại &amp; gắp vật" Margin="0,0,0,5" Padding="4">
+                                            <StackPanel>
+                                                <DockPanel Margin="0,2">
+                                                    <TextBlock Text="ID vật:" Classes="label"/>
+                                                    <TextBox Text="{Binding InputIfConditionId}" Classes="input"/>
+                                                </DockPanel>
+                                                <UniformGrid Columns="3" Rows="1" Margin="0,4,0,2">
+                                                    <Button Content="+ IF" Margin="2" Height="25" Background="#FF6F00" Foreground="White" FontWeight="Bold"
+                                                            Command="{Binding AddIfBranchCommand}" ToolTip.Tip="IF/ELSEIF theo ID camera: gắp vật rồi chạy các khối phía sau"/>
+                                                    <Button Content="+ ELSE" Margin="2" Height="25" Background="#EF6C00" Foreground="White" FontWeight="Bold"
+                                                            Command="{Binding AddElseBranchCommand}" ToolTip.Tip="Nhánh cho ID không khớp"/>
+                                                    <Button Content="+ END" Margin="2" Height="25" Background="#4A148C" Foreground="White" FontWeight="Bold"
+                                                            Command="{Binding AddEndIfCommand}" ToolTip.Tip="Kết thúc khối IF"/>
+                                                </UniformGrid>
+
+                                                <Expander Header="Cài đặt bám &amp; gắp (PICK)" Margin="0,4,0,0" IsExpanded="False" HorizontalAlignment="Stretch">
+                                                    <Grid Margin="0,4,0,0" ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
+                                                        <TextBlock Text="Vx băng tải" Classes="label" ToolTip.Tip="mm/s, hệ toạ độ robot (bị thay bằng vx của camera nếu có)"/>
+                                                        <TextBox Grid.Column="1" Text="{Binding ConveyorVx}" Classes="input"/>
+                                                        <TextBlock Grid.Column="2" Text="Vy" Classes="label" Margin="4,0,0,0"/>
+                                                        <TextBox Grid.Column="3" Text="{Binding ConveyorVy}" Classes="input"/>
+                                                        <TextBlock Grid.Row="1" Text="Cao tiếp cận" Classes="label" ToolTip.Tip="mm phía trên mặt vật"/>
+                                                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PickApproachDz}" Classes="input"/>
+                                                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Hạ (ms)" Classes="label" Margin="4,0,0,0"/>
+                                                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding PickDownMs}" Classes="input"/>
+                                                        <TextBlock Grid.Row="2" Text="Kẹp (ms)" Classes="label"/>
+                                                        <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding PickGripMs}" Classes="input"/>
+                                                        <TextBlock Grid.Row="2" Grid.Column="2" Text="Nhấc (ms)" Classes="label" Margin="4,0,0,0"/>
+                                                        <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding PickUpMs}" Classes="input"/>
+                                                        <CheckBox Grid.Row="3" Content="Kẹp: PIN" IsChecked="{Binding PickUseGpio}" VerticalAlignment="Center"/>
+                                                        <ComboBox Grid.Row="3" Grid.Column="1" ItemsSource="{Binding GpioPinOptions}" SelectedItem="{Binding PickGripPin}" Margin="2,1"/>
+                                                        <CheckBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" Content="Mức kẹp = 1" IsChecked="{Binding PickGripHigh}"
+                                                                  VerticalAlignment="Center" Margin="4,0,0,0"/>
+                                                    </Grid>
+                                                </Expander>
+
+                                                <Separator Margin="0,4" Background="#DDDDDD"/>
+                                                <TextBlock Text="JSON thử (giả lập Camera):" FontSize="11" Foreground="Gray" Margin="0,2,0,0"/>
+                                                <TextBox Text="{Binding InputCameraJson}" Classes="input"/>
+                                                <Button Content="Apply Camera JSON (Test)" Height="24" Margin="0,2,0,0" Background="#7B1FA2" Foreground="White" FontSize="11"
+                                                        Command="{Binding ApplyCameraJsonCommand}"/>
+                                            </StackPanel>
+                                        </c:GroupBox>
+                                    </StackPanel>
+                                </c:GroupBox>
+                            </StackPanel>
+
+                            <!-- ======================= TEACHING MODE ======================= -->
+                            <StackPanel IsVisible="{Binding IsTeachingMode}">
+                                <c:GroupBox Header="TEACHING MODE CHOOSE" Margin="0,0,0,10">
+                                    <UniformGrid Columns="2" Margin="5">
+                                        <RadioButton Content="Handing Mode" GroupName="TeachingSubMode" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"
+                                                     IsChecked="{Binding IsHandingMode, Mode=TwoWay}" ToolTip.Tip="Nhả khớp để kéo tay robot, vẫn nhận phản hồi vị trí"/>
+                                        <RadioButton Content="Jogging Mode" GroupName="TeachingSubMode" FontWeight="Bold" HorizontalAlignment="Center" Margin="5"
+                                                     IsChecked="{Binding IsJoggingMode, Mode=TwoWay}" ToolTip.Tip="Robot giữ vị trí, tăng/giảm X, Y, Z, Theta từng bước"/>
+                                    </UniformGrid>
+                                </c:GroupBox>
+
+                                <c:GroupBox Header="TEACHING CONFIG">
+                                    <Grid Margin="5" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnDefinitions="85,*">
+
+                                        <!-- Jog: nút tự khoá khi chạm giới hạn khớp / biên vùng làm việc / lồng kính -->
+                                        <StackPanel Grid.Row="0" Grid.ColumnSpan="2" IsVisible="{Binding IsJoggingMode}">
+                                            <DockPanel Margin="0,3">
+                                                <TextBlock Text="Bước jog:" Width="85" Classes="label"/>
+                                                <TextBlock DockPanel.Dock="Right" Text="mm / °" Classes="label" Margin="4,0,0,0"/>
+                                                <TextBox Text="{Binding JogStep}" Classes="input"/>
+                                            </DockPanel>
+                                            <Grid Margin="0,3" Height="28" ColumnDefinitions="85,*,*">
+                                                <TextBlock Text="X Jog:" Classes="label"/>
+                                                <Button Grid.Column="1" Content="−" Margin="0,0,3,0" Background="Orange" Foreground="White" FontWeight="Bold" Command="{Binding JogXMinusCommand}"/>
+                                                <Button Grid.Column="2" Content="+" Margin="3,0,0,0" Background="DodgerBlue" Foreground="White" FontWeight="Bold" Command="{Binding JogXPlusCommand}"/>
+                                            </Grid>
+                                            <Grid Margin="0,3" Height="28" ColumnDefinitions="85,*,*">
+                                                <TextBlock Text="Y Jog:" Classes="label"/>
+                                                <Button Grid.Column="1" Content="−" Margin="0,0,3,0" Background="Orange" Foreground="White" FontWeight="Bold" Command="{Binding JogYMinusCommand}"/>
+                                                <Button Grid.Column="2" Content="+" Margin="3,0,0,0" Background="DodgerBlue" Foreground="White" FontWeight="Bold" Command="{Binding JogYPlusCommand}"/>
+                                            </Grid>
+                                            <Grid Margin="0,3" Height="28" ColumnDefinitions="85,*,*">
+                                                <TextBlock Text="Z Jog:" Classes="label"/>
+                                                <Button Grid.Column="1" Content="−" Margin="0,0,3,0" Background="Orange" Foreground="White" FontWeight="Bold" Command="{Binding JogZMinusCommand}"/>
+                                                <Button Grid.Column="2" Content="+" Margin="3,0,0,0" Background="DodgerBlue" Foreground="White" FontWeight="Bold" Command="{Binding JogZPlusCommand}"/>
+                                            </Grid>
+                                            <Grid Margin="0,3" Height="28" ColumnDefinitions="85,*,*">
+                                                <TextBlock Text="Theta Jog:" Classes="label"/>
+                                                <Button Grid.Column="1" Content="−" Margin="0,0,3,0" Background="Orange" Foreground="White" FontWeight="Bold" Command="{Binding JogThetaMinusCommand}"/>
+                                                <Button Grid.Column="2" Content="+" Margin="3,0,0,0" Background="DodgerBlue" Foreground="White" FontWeight="Bold" Command="{Binding JogThetaPlusCommand}"/>
+                                            </Grid>
+                                        </StackPanel>
+
+                                        <TextBlock Text="Time (ms):" Grid.Row="4" Classes="label" Margin="0,5"/>
+                                        <TextBox Text="{Binding InputTime}" Grid.Row="4" Grid.Column="1" Classes="input"/>
+
+                                        <Button Content="ADD TEACH POINT" Grid.Row="6" Grid.ColumnSpan="2" Margin="0,15,0,5" Height="35"
+                                                Background="SteelBlue" Foreground="White" FontWeight="Bold" FontSize="13"
+                                                Command="{Binding AddTeachPointCommand}" ToolTip.Tip="Tạo khối MOVE tại toạ độ điểm công tác hiện tại"/>
+                                    </Grid>
+                                </c:GroupBox>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </c:GroupBox>
+
+            <!-- =================================================================== -->
+            <!-- CỘT 2: TOẠ ĐỘ + MÔ PHỎNG 3D (vị trí các khâu tính theo bảng DH)      -->
+            <!-- =================================================================== -->
+            <Grid Grid.Column="1" Margin="5" RowDefinitions="Auto,*">
+
+                <Border Grid.Row="0" Background="#F5F5F7" BorderBrush="#DCDCDC" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,5">
+                    <StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Joint:" FontWeight="Bold" Foreground="#333333" VerticalAlignment="Center" Width="110"/>
+                            <TextBlock Text="J1 =" VerticalAlignment="Center" Margin="5,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding J1, StringFormat='{}{0:F2} °'}"/></Border>
+                            <TextBlock Text="J2 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding J2, StringFormat='{}{0:F2} °'}"/></Border>
+                            <TextBlock Text="J3 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding J3, StringFormat='{}{0:F2} mm'}"/></Border>
+                            <TextBlock Text="J4 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding J4, StringFormat='{}{0:F2} °'}"/></Border>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="End-Effector:" FontWeight="Bold" Foreground="#005A9E" VerticalAlignment="Center" Width="110"/>
+                            <TextBlock Text="X =" VerticalAlignment="Center" Margin="5,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding RobotX, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+                            <TextBlock Text="Y =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding RobotY, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+                            <TextBlock Text="Z =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding RobotZ, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+                            <TextBlock Text="Theta =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                            <Border Classes="value"><TextBlock Text="{Binding RobotTheta, StringFormat='{}{0:F2} °'}" Foreground="#005A9E"/></Border>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <c:GroupBox Grid.Row="1" Header="ROBOT 3D SIMULATION">
+                    <Grid>
+                        <!-- Mỗi khâu đặt theo hệ toạ độ DH của nó (xem RobotParameters.DhTable / Links) -->
+                        <c:RobotViewport Meshes="{Binding LinkMeshes}"
+                                         Colors="{Binding LinkColors}"
+                                         Transforms="{Binding LinkTransforms}"
+                                         ToolTip.Tip="Kéo chuột trái/phải: xoay · Giữa hoặc Shift+kéo: dời · Lăn: phóng to · Nhấp đúp: góc nhìn ban đầu"/>
+                        <TextBlock Text="{Binding LinkColorLegend}" VerticalAlignment="Bottom" Margin="8,0,8,6" FontSize="11" Foreground="#555"
+                                   TextWrapping="Wrap" IsHitTestVisible="False"/>
+                    </Grid>
+                </c:GroupBox>
+            </Grid>
+
+            <!-- =================================================================== -->
+            <!-- CỘT 3: CHƯƠNG TRÌNH + JSON GẦN NHẤT                                 -->
+            <!-- =================================================================== -->
+            <c:GroupBox Header="PROGRAMMING" Grid.Column="2" Margin="5">
+                <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+                    <Border Grid.Row="0" Background="#F5F5F7" BorderBrush="#DCDCDC" BorderThickness="1" CornerRadius="3" Padding="6,4" Margin="2,2,2,4">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="Running" FontWeight="Bold" Foreground="Green" VerticalAlignment="Center"
+                                       IsVisible="{Binding IsProgramRunning}"/>
+                            <TextBlock Text="{Binding EngineStatus}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                        </DockPanel>
+                    </Border>
+
+                    <ListBox Grid.Row="1" Margin="2" Classes="program"
+                             ItemsSource="{Binding ProgramBlocks}"
+                             SelectedItem="{Binding SelectedProgramBlock, Mode=TwoWay}"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             Background="White">
+                        <ListBox.Styles>
+                            <Style Selector="ListBox.program ListBoxItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                                <Setter Property="Padding" Value="0"/>
+                                <Setter Property="MinHeight" Value="0"/>
+                            </Style>
+                            <Style Selector="ListBox.program ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="#E3F2FD"/>
+                            </Style>
+                        </ListBox.Styles>
+
+                        <!-- Mẫu hiển thị từng loại khối lệnh (thay cho ProgramBlockTemplateSelector) -->
+                        <ListBox.DataTemplates>
+                            <DataTemplate DataType="models:MoveBlock">
+                                <Border Background="#EAF4FB" BorderBrush="#2196F3" BorderThickness="2" CornerRadius="3" Margin="1" Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x1F4CD; MOVE  " FontWeight="Bold" Foreground="#1565C0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding DisplaySummary}" VerticalAlignment="Center" Foreground="#333"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:DelayBlock">
+                                <Border Background="#FFF8E1" BorderBrush="#FFC107" BorderThickness="2" CornerRadius="3" Margin="1" Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x23F1; DELAY  " FontWeight="Bold" Foreground="#E65100" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding DisplaySummary}" VerticalAlignment="Center" Foreground="#333"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:GpioBlock">
+                                <Border Background="#E8F5E9" BorderBrush="#4CAF50" BorderThickness="2" CornerRadius="3" Margin="1" Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x26A1; GPIO  " FontWeight="Bold" Foreground="#1B5E20" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding DisplaySummary}" VerticalAlignment="Center" Foreground="#333"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:IfBranchBlock">
+                                <Border Background="#FFF3E0" BorderBrush="#FF6F00" BorderThickness="2,2,2,1" CornerRadius="3,3,0,0" Margin="1,1,1,0" Padding="6,4">
+                                    <TextBlock Text="{Binding DisplaySummary}" FontFamily="{StaticResource MonoFont}" FontSize="11" FontWeight="Bold" Foreground="#BF360C"/>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:ElseBranchBlock">
+                                <Border Background="#FFF3E0" BorderBrush="#FF6F00" BorderThickness="2,1,2,1" Margin="1,0,1,0" Padding="6,4">
+                                    <TextBlock Text="{Binding DisplaySummary}" FontFamily="{StaticResource MonoFont}" FontSize="11" FontWeight="Bold" Foreground="#BF360C"/>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:EndIfBlock">
+                                <Border Background="#FFF3E0" BorderBrush="#FF6F00" BorderThickness="2,1,2,2" CornerRadius="0,0,3,3" Margin="1,0,1,1" Padding="6,4">
+                                    <TextBlock Text="{Binding DisplaySummary}" FontFamily="{StaticResource MonoFont}" FontSize="11" FontWeight="Bold" Foreground="#BF360C"/>
+                                </Border>
+                            </DataTemplate>
+                        </ListBox.DataTemplates>
+                    </ListBox>
+
+                    <UniformGrid Rows="1" Columns="2" Grid.Row="2" Margin="2,6,2,2">
+                        <Button Content="DELETE LINE" Margin="2,0" Height="32" Background="Firebrick" Foreground="White" FontWeight="Bold"
+                                Command="{Binding DeleteProgramBlockCommand}" ToolTip.Tip="Xoá khối đang chọn"/>
+                        <Button Content="CLEAR ALL" Margin="2,0" Height="32" Background="DarkRed" Foreground="White" FontWeight="Bold"
+                                Command="{Binding ClearProgramBlocksCommand}" ToolTip.Tip="Xoá toàn bộ chương trình"/>
+                    </UniformGrid>
+
+                    <!-- Gói JSON gần nhất gửi xuống IPC / nhận từ Camera (để kiểm tra trực quan) -->
+                    <Expander Grid.Row="3" Header="JSON gần nhất" Margin="2,6,2,2" HorizontalAlignment="Stretch">
+                        <StackPanel>
+                            <TextBlock Text="STA → IPC:" FontSize="11" Foreground="Gray"/>
+                            <TextBox Text="{Binding LastTxJson, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                                     FontFamily="{StaticResource MonoFont}" FontSize="11" Height="160"
+                                     ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                            <TextBlock Text="Camera → GUI:" FontSize="11" Foreground="Gray" Margin="0,4,0,0"/>
+                            <TextBox Text="{Binding LastCameraJson, Mode=OneWay}" IsReadOnly="True" AcceptsReturn="True"
+                                     FontFamily="{StaticResource MonoFont}" FontSize="11" TextWrapping="Wrap"/>
+                        </StackPanel>
+                    </Expander>
+                </Grid>
+            </c:GroupBox>
+        </Grid>
+    </DockPanel>
+</Window>

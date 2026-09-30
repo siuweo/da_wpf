@@ -1,26 +1,18 @@
+using Avalonia.Media;
+using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using DUC_GUI.Models;
 using DUC_GUI.Services;
-using HelixToolkit.SharpDX;
-using HelixToolkit.SharpDX.Assimp;
-using HelixToolkit.SharpDX.Core;
-using HelixToolkit.SharpDX.Model.Scene;
-using HelixToolkit.Wpf.SharpDX;
-using Microsoft.Win32;
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
-using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Media3D;
-using System.Windows.Threading;
-// Alias để tránh xung đột kiểu giữa WPF và HelixToolkit
-using HxCamera     = HelixToolkit.Wpf.SharpDX.PerspectiveCamera;
-using HxGeometry3D = HelixToolkit.SharpDX.Geometry3D;
 
 namespace DUC_GUI.ViewModels
 {
@@ -53,31 +45,14 @@ namespace DUC_GUI.ViewModels
         private readonly Dispatcher         _ui;
 
         // ===================================================================================
-        // 3. HIỂN THỊ 3D (HelixToolkit SharpDX) – mỗi khâu 1 hình học, 1 vật liệu, 1 phép biến đổi DH
+        // 3. HIỂN THỊ 3D (Controls/RobotViewport – OpenGL) – mỗi khâu 1 lưới STL, 1 màu, 1 phép biến đổi DH
         // ===================================================================================
-        public EffectsManager EffectsManager { get; }
-        public HxCamera       Camera         { get; }
-        public LineGeometry3D GridGeometry   { get; }
+        public StlMesh?[] LinkMeshes { get; } = new StlMesh?[RobotParameters.Links.Length];
+        public Color[]    LinkColors { get; } = RobotParameters.Links.Select(l => Color.Parse(l.Hex)).ToArray();
 
-        private readonly HxGeometry3D?[] _linkGeometry = new HxGeometry3D?[RobotParameters.Links.Length];
-        private readonly PhongMaterial[]  _linkMaterial = new PhongMaterial[RobotParameters.Links.Length];
-        private readonly Transform3D[]    _linkTransform = new Transform3D[RobotParameters.Links.Length];
+        private Matrix4x4[] _linkTransforms = new Matrix4x4[RobotParameters.Links.Length];
+        public Matrix4x4[] LinkTransforms { get => _linkTransforms; private set => Set(ref _linkTransforms, value); }
 
-        public HxGeometry3D? Link0Geometry => _linkGeometry[0];
-        public HxGeometry3D? Link1Geometry => _linkGeometry[1];
-        public HxGeometry3D? Link2Geometry => _linkGeometry[2];
-        public HxGeometry3D? Link3Geometry => _linkGeometry[3];
-        public HxGeometry3D? Link4Geometry => _linkGeometry[4];
-        public PhongMaterial Link0Material => _linkMaterial[0];
-        public PhongMaterial Link1Material => _linkMaterial[1];
-        public PhongMaterial Link2Material => _linkMaterial[2];
-        public PhongMaterial Link3Material => _linkMaterial[3];
-        public PhongMaterial Link4Material => _linkMaterial[4];
-        public Transform3D   Link0Transform => _linkTransform[0];
-        public Transform3D   Link1Transform => _linkTransform[1];
-        public Transform3D   Link2Transform => _linkTransform[2];
-        public Transform3D   Link3Transform => _linkTransform[3];
-        public Transform3D   Link4Transform => _linkTransform[4];
         public string        LinkColorLegend { get; } =
             string.Join("   ", RobotParameters.Links.Select(l => $"{l.File}: {l.Ral}"));
 
@@ -304,26 +279,14 @@ namespace DUC_GUI.ViewModels
             _ipc    = ipc;
             _camera = camera;
             _csv    = csv;
-            _ui     = Application.Current.Dispatcher;
+            _ui     = Dispatcher.UIThread;
 
-            EffectsManager = new DefaultEffectsManager();
-            Camera = new HxCamera
-            {
-                Position          = new Point3D(800, 800, 600),
-                LookDirection     = new Vector3D(-800, -800, -600),
-                UpDirection       = new Vector3D(0, 0, 1),
-                NearPlaneDistance = 0.1,
-                FarPlaneDistance  = 100000.0
-            };
-            GridGeometry = BuildGridGeometry();
-            for (int i = 0; i < RobotParameters.Links.Length; i++)
-                _linkMaterial[i] = MakeMaterial(RobotParameters.Links[i].Hex);
             LoadRobotModels();
             UpdateRobotPose();
 
             SendCommandToIpcCommand = new RobotCommand(p => _ = ExecuteSendCommandAsync(p as string));
-            ImportProgCommand       = new RobotCommand(_ => ExecuteImportProg());
-            SaveProgCommand         = new RobotCommand(_ => ExecuteSaveProg());
+            ImportProgCommand       = new RobotCommand(_ => _ = ExecuteImportProgAsync());
+            SaveProgCommand         = new RobotCommand(_ => _ = ExecuteSaveProgAsync());
 
             JogXPlusCommand      = new RelayCommand(() => Jog("X", +1),     () => CanJog(0));
             JogXMinusCommand     = new RelayCommand(() => Jog("X", -1),     () => CanJog(1));
@@ -454,6 +417,7 @@ namespace DUC_GUI.ViewModels
                 if (!_ipc.IsConnected)
                 {
                     StatusText = $"Đang kết nối {IpcAddress}:{RobotParameters.IpcPort} ...";
+
                     if (!await _ipc.ConnectAsync(IpcAddress.Trim(), RobotParameters.IpcPort))
                     {
                         StatusText = "Không kết nối được IPC";
@@ -591,7 +555,7 @@ namespace DUC_GUI.ViewModels
             catch (FormatException ex)
             {
                 LogUi($"Khối lệnh không hợp lệ: {ex.Message}");
-                MessageBox.Show(ex.Message, "Chương trình không hợp lệ", MessageBoxButton.OK, MessageBoxImage.Warning);
+                await Dialogs.ShowAsync(ex.Message, "Chương trình không hợp lệ", DialogIcon.Warning);
             }
             finally
             {
@@ -823,13 +787,20 @@ namespace DUC_GUI.ViewModels
             return dir;
         }
 
-        private void ExecuteSaveProg()
+        private async Task ExecuteSaveProgAsync()
         {
+            if (Dialogs.Storage is not { } storage) return;
             string dir = GetProgramDirectoryPath();
             int n = 1;
             while (File.Exists(Path.Combine(dir, $"program{n}.txt"))) n++;
-            var dialog = new SaveFileDialog { Filter = "Text files (*.txt)|*.txt", InitialDirectory = dir, FileName = $"program{n}.txt" };
-            if (dialog.ShowDialog() != true) return;
+            var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                FileTypeChoices        = [Dialogs.TextFiles],
+                DefaultExtension       = "txt",
+                SuggestedFileName      = $"program{n}.txt",
+                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(dir)
+            });
+            if (file == null) return;
 
             try
             {
@@ -852,37 +823,51 @@ namespace DUC_GUI.ViewModels
                     };
                     if (line != null) sb.AppendLine(line);
                 }
-                File.WriteAllText(dialog.FileName, sb.ToString(), Encoding.UTF8);
-                MessageBox.Show($"Đã lưu {ProgramBlocks.Count} khối lệnh vào:\n{Path.GetFileName(dialog.FileName)}",
-                                "Thành công", MessageBoxButton.OK, MessageBoxImage.Information);
+                await using (var stream = await file.OpenWriteAsync())
+                {
+                    stream.SetLength(0);   // ghi đè file cũ, không để sót phần đuôi
+                    await using var writer = new StreamWriter(stream, new UTF8Encoding(true));
+                    await writer.WriteAsync(sb.ToString());
+                }
+                await Dialogs.ShowAsync($"Đã lưu {ProgramBlocks.Count} khối lệnh vào:\n{file.Name}", "Thành công");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi khi lưu chương trình: {ex.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
+                await Dialogs.ShowAsync($"Lỗi khi lưu chương trình: {ex.Message}", "Lỗi", DialogIcon.Error);
             }
         }
 
-        private void ExecuteImportProg()
+        private async Task ExecuteImportProgAsync()
         {
-            var dialog = new OpenFileDialog { Filter = "Text files (*.txt)|*.txt", InitialDirectory = GetProgramDirectoryPath() };
-            if (dialog.ShowDialog() != true) return;
+            if (Dialogs.Storage is not { } storage) return;
+            var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+            {
+                AllowMultiple          = false,
+                FileTypeFilter         = [Dialogs.TextFiles],
+                SuggestedStartLocation = await storage.TryGetFolderFromPathAsync(GetProgramDirectoryPath())
+            });
+            if (files.Count == 0) return;
 
             try
             {
+                string text;
+                await using (var stream = await files[0].OpenReadAsync())
+                using (var reader = new StreamReader(stream, Encoding.UTF8))
+                    text = await reader.ReadToEndAsync();
+
                 ProgramBlocks.Clear();
-                foreach (string raw in File.ReadAllLines(dialog.FileName))
+                foreach (string raw in text.Split('\n'))
                 {
                     string line = raw.Trim();
                     if (line.Length == 0 || line.StartsWith('#')) continue;
                     var block = DeserializeProgramBlock(line.Split('|'));
                     if (block != null) ProgramBlocks.Add(block);
                 }
-                MessageBox.Show($"Đã tải chương trình: {ProgramBlocks.Count} khối lệnh.", "Thành công",
-                                MessageBoxButton.OK, MessageBoxImage.Information);
+                await Dialogs.ShowAsync($"Đã tải chương trình: {ProgramBlocks.Count} khối lệnh.", "Thành công");
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi khi tải chương trình: {ex.Message}", "Lỗi Import", MessageBoxButton.OK, MessageBoxImage.Error);
+                await Dialogs.ShowAsync($"Lỗi khi tải chương trình: {ex.Message}", "Lỗi Import", DialogIcon.Error);
             }
         }
 
@@ -906,51 +891,25 @@ namespace DUC_GUI.ViewModels
         // ===================================================================================
         // 17. MÔ HÌNH 3D
         // ===================================================================================
-        private static LineGeometry3D BuildGridGeometry()
-        {
-            var lb = new LineBuilder();
-            const int half = 500, step = 50;
-            for (int v = -half; v <= half; v += step)
-            {
-                lb.AddLine(new System.Numerics.Vector3(v, -half, 0), new System.Numerics.Vector3(v, half, 0));
-                lb.AddLine(new System.Numerics.Vector3(-half, v, 0), new System.Numerics.Vector3(half, v, 0));
-            }
-            return lb.ToLineGeometry3D();
-        }
-
-        private static PhongMaterial MakeMaterial(string hex)
-        {
-            var c = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(hex);
-            float r = c.R / 255f, g = c.G / 255f, b = c.B / 255f;
-            return new PhongMaterial
-            {
-                DiffuseColor      = new HelixToolkit.Maths.Color4(r, g, b, 1f),
-                AmbientColor      = new HelixToolkit.Maths.Color4(r * 0.25f, g * 0.25f, b * 0.25f, 1f),
-                SpecularColor     = new HelixToolkit.Maths.Color4(0.35f, 0.35f, 0.35f, 1f),
-                SpecularShininess = 40f
-            };
-        }
-
         private void LoadRobotModels()
         {
             try
             {
                 var dir = new DirectoryInfo(Path.Combine(AppContext.BaseDirectory, "Resources", "Models3D"));
                 if (!dir.Exists) return;
-                using var importer = new Importer();
                 for (int i = 0; i < RobotParameters.Links.Length; i++)
                 {
-                    var file = dir.GetFiles($"{RobotParameters.Links[i].File}.*").FirstOrDefault();
+                    // Không phân biệt hoa/thường (Linux phân biệt: Link0.STL ≠ Link0.stl)
+                    var file = dir.GetFiles().FirstOrDefault(f =>
+                        Path.GetFileNameWithoutExtension(f.Name).Equals(RobotParameters.Links[i].File, StringComparison.OrdinalIgnoreCase) &&
+                        f.Extension.Equals(".stl", StringComparison.OrdinalIgnoreCase));
                     if (file == null) continue;   // vd. Link4.STL chưa có
-                    var scene = importer.Load(file.FullName);
-                    _linkGeometry[i] = scene?.Root is MeshNode mesh
-                        ? mesh.Geometry
-                        : scene?.Root.Traverse().OfType<MeshNode>().FirstOrDefault()?.Geometry;
+                    LinkMeshes[i] = StlMesh.Load(file.FullName);
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Lỗi nạp mô hình STL: {ex.Message}", "Model Load Error");
+                _ui.Post(() => _ = Dialogs.ShowAsync($"Lỗi nạp mô hình STL: {ex.Message}", "Model Load Error", DialogIcon.Error));
             }
         }
 
@@ -958,13 +917,7 @@ namespace DUC_GUI.ViewModels
         private void UpdateRobotPose()
         {
             var frames = DhKinematics.Frames(RobotParameters.DhTable, [J1, J2, J3, J4]);
-            for (int i = 0; i < RobotParameters.Links.Length; i++)
-            {
-                var transform = new MatrixTransform3D(frames[RobotParameters.Links[i].Frame]);
-                transform.Freeze();
-                _linkTransform[i] = transform;
-                OnPropertyChanged($"Link{i}Transform");
-            }
+            LinkTransforms = RobotParameters.Links.Select(l => frames[l.Frame]).ToArray();
         }
     }
 }

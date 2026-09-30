@@ -1,7 +1,0 @@
-﻿# Robot Program File
-# Generated: 2026-08-03 13:31:22
-# Format: BlockType|Parameters
-#
-If|1|1
-If|2|0
-End

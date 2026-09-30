@@ -27,6 +27,7 @@ namespace DUC_GUI.Models
 
         // Theo DH, q3 = 0 <=> Z = D1 + D2 - D3 = 166.5 mm nhưng Z thực tế là 150 mm.
         // IPC đã xử lý offset này: MỌI toạ độ trên GUI và trong gói tin đều là Z THỰC TẾ.
+        public const double Z_OFF = 16.5;
         public const double Z_MAX = 150.0;
 
         /// <summary>

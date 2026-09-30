@@ -1,0 +1,92 @@
+<Application x:Class="DUC_GUI.App"
+             xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:c="using:DUC_GUI.Controls"
+             RequestedThemeVariant="Light">
+    <Application.Resources>
+        <!-- Consolas trên Windows, font đơn cách tương đương trên Linux -->
+        <FontFamily x:Key="MonoFont">Consolas, DejaVu Sans Mono, Liberation Mono, Courier New</FontFamily>
+
+        <!-- Avalonia không có GroupBox: khung viền + tiêu đề phía trên -->
+        <ControlTheme x:Key="{x:Type c:GroupBox}" TargetType="c:GroupBox">
+            <Setter Property="BorderBrush" Value="#D5DFE5"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="3"/>
+            <Setter Property="Padding" Value="4"/>
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}" Background="{TemplateBinding Background}">
+                        <DockPanel>
+                            <ContentPresenter Name="PART_HeaderPresenter" DockPanel.Dock="Top" Margin="6,4,6,0"
+                                              FontWeight="SemiBold"
+                                              Content="{TemplateBinding Header}" ContentTemplate="{TemplateBinding HeaderTemplate}"/>
+                            <ContentPresenter Name="PART_ContentPresenter" Padding="{TemplateBinding Padding}"
+                                              Content="{TemplateBinding Content}" ContentTemplate="{TemplateBinding ContentTemplate}"/>
+                        </DockPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme DensityStyle="Compact"/>
+
+        <!-- Cỡ chữ mặc định 12 như WPF (Fluent mặc định 14 làm tràn các ô giá trị rộng 85) -->
+        <Style Selector=":is(Window)">
+            <Setter Property="FontSize" Value="12"/>
+        </Style>
+
+        <!-- Nút giữ màu nền riêng khi rê chuột / nhấn / bị khoá (mờ đi thay vì chuyển xám) -->
+        <Style Selector="Button">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="6,0"/>
+        </Style>
+        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}"/>
+            <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}"/>
+            <Setter Property="Opacity" Value="0.85"/>
+        </Style>
+        <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}"/>
+            <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}"/>
+            <Setter Property="Opacity" Value="0.7"/>
+        </Style>
+        <!-- Nút jog bị mờ khi IPC báo đã chạm giới hạn theo hướng đó -->
+        <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Background" Value="{Binding $parent[Button].Background}"/>
+            <Setter Property="Foreground" Value="{Binding $parent[Button].Foreground}"/>
+            <Setter Property="Opacity" Value="0.35"/>
+        </Style>
+
+        <!-- Thay cho các Style x:Key của WPF: dùng Classes="label" / "input" / "value" -->
+        <Style Selector="TextBlock.label">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+        <Style Selector="TextBox.input">
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="Padding" Value="4,2"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="2,1"/>
+        </Style>
+        <Style Selector="Border.value">
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#CCCCCC"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="2"/>
+            <Setter Property="Padding" Value="6,3"/>
+            <Setter Property="Width" Value="85"/>
+        </Style>
+        <Style Selector="Border.value > TextBlock">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextAlignment" Value="Right"/>
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="HorizontalAlignment" Value="Stretch"/>
+            <Setter Property="MinHeight" Value="24"/>
+        </Style>
+    </Application.Styles>
+</Application>

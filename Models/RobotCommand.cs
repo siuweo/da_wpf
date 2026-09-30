@@ -1,4 +1,4 @@
-﻿using System.Windows.Input; // BẮT BUỘC: Thêm namespace này để dùng ICommand
+using System.Windows.Input; // ICommand (có sẵn trong .NET, không thuộc WPF)
 
 namespace DUC_GUI.Models
 {
@@ -19,7 +19,7 @@ namespace DUC_GUI.Models
         public void Execute(object? parameter) => _execute(parameter);
 
         /// <summary>
-        /// Sự kiện tự động thông báo cho WPF vẽ lại trạng thái nút (Ẩn/Hiện/Mờ) khi dữ liệu thay đổi
+        /// Sự kiện tự động thông báo cho giao diện vẽ lại trạng thái nút (Ẩn/Hiện/Mờ) khi dữ liệu thay đổi
         /// </summary>
         public event EventHandler? CanExecuteChanged
         {

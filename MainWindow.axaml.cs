@@ -1,5 +1,6 @@
-using System.ComponentModel;
-using System.Windows;
+using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Interactivity;
 using DUC_GUI.Models;
 using DUC_GUI.Services;
 using DUC_GUI.ViewModels;
@@ -19,14 +20,6 @@ namespace DUC_GUI
         {
             InitializeComponent();
 
-            var selector = (ProgramBlockTemplateSelector)Resources["BlockSelector"];
-            selector.MoveTemplate       = (DataTemplate)Resources["MoveBlockTemplate"];
-            selector.DelayTemplate      = (DataTemplate)Resources["DelayBlockTemplate"];
-            selector.GpioTemplate       = (DataTemplate)Resources["GpioBlockTemplate"];
-            selector.IfBranchTemplate   = (DataTemplate)Resources["IfBranchBlockTemplate"];
-            selector.ElseBranchTemplate = (DataTemplate)Resources["ElseBranchBlockTemplate"];
-            selector.EndIfTemplate      = (DataTemplate)Resources["EndIfBlockTemplate"];
-
             _viewModel  = new MainViewModel(_ipc, _camera, _csv);
             DataContext = _viewModel;
 
@@ -39,22 +32,12 @@ namespace DUC_GUI
                 _logWindow.Hide();
             };
 
-            Loaded += (_, _) =>
-            {
-                _logWindow.Owner = this;
-                if (RobotViewport.RenderHost is { } host)
-                {
-                    var c = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(RobotParameters.ViewportBackground);
-                    host.ClearColor = new HelixToolkit.Maths.Color4(c.R / 255f, c.G / 255f, c.B / 255f, 1f);
-                }
-                _camera.Start();
-            };
-
+            Opened  += (_, _) => _camera.Start();
             Closing += OnWindowClosing;
         }
 
         // Đóng ứng dụng: gửi DIS để IPC dừng robot, tắt driver, đóng EtherCAT rồi mới thoát
-        private async void OnWindowClosing(object? sender, CancelEventArgs e)
+        private async void OnWindowClosing(object? sender, WindowClosingEventArgs e)
         {
             if (_closing) return;
             e.Cancel = true;
@@ -69,14 +52,17 @@ namespace DUC_GUI
                 _csv.Dispose();
                 _ipc.Dispose();
                 _logWindow.Close();
-                Application.Current.Shutdown();
+                if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+                    desktop.Shutdown();
+                else
+                    Close();
             }
         }
 
-        private void MenuConsole_Click(object sender, RoutedEventArgs e)
+        private void MenuConsole_Click(object? sender, RoutedEventArgs e)
         {
             if (_logWindow.IsVisible) _logWindow.Activate();
-            else _logWindow.Show();
+            else _logWindow.Show(this);
         }
     }
 }
