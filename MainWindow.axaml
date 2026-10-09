@@ -261,33 +261,40 @@
             <!-- =================================================================== -->
             <!-- CỘT 2: TOẠ ĐỘ + MÔ PHỎNG 3D (vị trí các khâu tính theo bảng DH)      -->
             <!-- =================================================================== -->
-            <Grid Grid.Column="1" Margin="5" RowDefinitions="Auto,*">
+            <Grid Grid.Column="1" Margin="5" RowDefinitions="Auto,*,Auto" ColumnSpan="6">
 
                 <Border Grid.Row="0" Background="#F5F5F7" BorderBrush="#DCDCDC" BorderThickness="1" CornerRadius="4" Padding="10" Margin="0,0,0,5">
-                    <StackPanel>
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="Joint:" FontWeight="Bold" Foreground="#333333" VerticalAlignment="Center" Width="110"/>
-                            <TextBlock Text="J1 =" VerticalAlignment="Center" Margin="5,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding J1, StringFormat='{}{0:F2} °'}"/></Border>
-                            <TextBlock Text="J2 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding J2, StringFormat='{}{0:F2} °'}"/></Border>
-                            <TextBlock Text="J3 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding J3, StringFormat='{}{0:F2} mm'}"/></Border>
-                            <TextBlock Text="J4 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding J4, StringFormat='{}{0:F2} °'}"/></Border>
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="End-Effector:" FontWeight="Bold" Foreground="#005A9E" VerticalAlignment="Center" Width="110"/>
-                            <TextBlock Text="X =" VerticalAlignment="Center" Margin="5,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding RobotX, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
-                            <TextBlock Text="Y =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding RobotY, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
-                            <TextBlock Text="Z =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding RobotZ, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
-                            <TextBlock Text="Theta =" VerticalAlignment="Center" Margin="15,0,2,0"/>
-                            <Border Classes="value"><TextBlock Text="{Binding RobotTheta, StringFormat='{}{0:F2} °'}" Foreground="#005A9E"/></Border>
-                        </StackPanel>
-                    </StackPanel>
+                    <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="110,Auto,100,Auto,100,Auto,100,Auto,100">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="Joint:" FontWeight="Bold" Foreground="#333333" VerticalAlignment="Center" Width="110"/>
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="J1 =" VerticalAlignment="Center" Margin="5,0,2,0"/>
+                        <Border Grid.Row="0" Grid.Column="2" Classes="value"><TextBlock Text="{Binding J1, StringFormat='{}{0:F2} °'}"/></Border>
+
+                        <TextBlock Grid.Row="0" Grid.Column="3" Text="J2 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="0" Grid.Column="4" Classes="value"><TextBlock Text="{Binding J2, StringFormat='{}{0:F2} °'}"/></Border>
+
+                        <TextBlock Grid.Row="0" Grid.Column="5" Text="J3 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="0" Grid.Column="6" Classes="value"><TextBlock Text="{Binding J3, StringFormat='{}{0:F2} mm'}"/></Border>
+
+                        <TextBlock Grid.Row="0" Grid.Column="7" Text="J4 =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="0" Grid.Column="8" Classes="value"><TextBlock Text="{Binding J4, StringFormat='{}{0:F2} °'}"/></Border>
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="End-Effector:" FontWeight="Bold" Foreground="#005A9E" VerticalAlignment="Center" Width="110"/>
+                        <TextBlock Grid.Row="1" Grid.Column="1" Text="X =" VerticalAlignment="Center" Margin="5,0,2,0"/>
+                        <Border Grid.Row="1" Grid.Column="2" Classes="value"><TextBlock Text="{Binding RobotX, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+                        
+                        <TextBlock Grid.Row="1" Grid.Column="3" Text="Y =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="1" Grid.Column="4" Classes="value"><TextBlock Text="{Binding RobotY, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+
+                        <TextBlock Grid.Row="1" Grid.Column="5" Text="Z =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="1" Grid.Column="6" Classes="value"><TextBlock Text="{Binding RobotZ, StringFormat='{}{0:F2} mm'}" Foreground="#005A9E"/></Border>
+
+                        <TextBlock Grid.Row="1" Grid.Column="7" Text="Theta =" VerticalAlignment="Center" Margin="15,0,2,0"/>
+                        <Border Grid.Row="1" Grid.Column="8" Classes="value"><TextBlock Text="{Binding RobotTheta, StringFormat='{}{0:F2} °'}" Foreground="#005A9E"/></Border>
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Belt:" FontWeight="Bold" Foreground="#005A9E" VerticalAlignment="Center" Width="110"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="RPM =" VerticalAlignment="Center" Margin="5,0,2,0"/>
+                        <Border Grid.Row="2" Grid.Column="2" Classes="value"><TextBlock Text="{Binding BeltRpm, StringFormat='{}{0:F2} rpm'}" Foreground="#005A9E"/></Border>
+                    </Grid>
                 </Border>
 
                 <c:GroupBox Grid.Row="1" Header="ROBOT 3D SIMULATION">

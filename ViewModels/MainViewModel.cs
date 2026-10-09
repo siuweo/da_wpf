@@ -68,8 +68,12 @@ namespace DUC_GUI.ViewModels
         public double RobotY     { get => _y;     private set => Set(ref _y, value); }
         public double RobotZ     { get => _z;     private set => Set(ref _z, value); }   // Z thực tế
         public double RobotTheta { get => _theta; private set => Set(ref _theta, value); }
-
+         
         // ===================================================================================
+        // 4.5 TỐC ĐỘ QUAY CỦA BĂNG TẢI
+        // ===================================================================================
+        private ushort _beltrpm;
+        public ushort BeltRpm {get => _beltrpm; private set => Set(ref _beltrpm, value); }
         // 5. TRẠNG THÁI KẾT NỐI / IPC
         // ===================================================================================
         private string _ipcAddress = RobotParameters.IpcIpAddress;
@@ -312,6 +316,7 @@ namespace DUC_GUI.ViewModels
             _ipc.ConnectionChanged  += up => _ui.InvokeAsync(() => OnConnectionChanged(up));
             _ipc.TelemetryReceived  += OnTelemetry;
             _ipc.EventReceived      += OnIpcEvent;
+            _ipc.AckReceived        += ack => _ui.InvokeAsync(() => OnIpcAck(ack));
             _camera.LogLine         += Log;
             _camera.DetectionReceived += OnCameraDetection;
             _camera.ClientCountChanged += n => _ui.InvokeAsync(() =>
@@ -363,6 +368,7 @@ namespace DUC_GUI.ViewModels
             DriveStatus = string.Join("  ", Enumerable.Range(0, Math.Min(t.Drv, t.Ds.Length))
                                                       .Select(i => $"D{i + 1}:{Cia402.Name(t.Ds[i])}")) +
                           (t.Lost > 0 ? $"  | mất frame: {t.Lost}" : "");
+            BeltRpm  = t.BeltRpm;
             UpdateRobotPose();
         }
 
@@ -371,6 +377,10 @@ namespace DUC_GUI.ViewModels
             if (_pendingPrograms.TryGetValue(evt.Id, out var tcs))
                 tcs.TrySetResult(evt);
         }
+
+        /// <summary>Hiện trả lời của IPC (vd. HAL bị từ chối khi không có chương trình đang chạy) lên thanh trạng thái.</summary>
+        private void OnIpcAck(IpcAck ack) =>
+            StatusText = ack.Ok ? $"{ack.Cmd}: {ack.Msg}" : $"{ack.Cmd} bị từ chối: {ack.Msg}";
 
         private void OnCameraDetection(CameraDetection det)
         {
@@ -577,7 +587,7 @@ namespace DUC_GUI.ViewModels
             int firstIf = blocks.FindIndex(b => b is IfBranchBlock { IsFirstIf: true });
             if (firstIf < 0)
             {
-                await SendStaAndWaitAsync(ToLines(blocks), IsLoopMode, token);
+                await SendStaAndWaitAsync(ToLines(blocks), IsLoopMode, false, token);   // xong thì nhả khớp
                 return;
             }
 
@@ -587,7 +597,7 @@ namespace DUC_GUI.ViewModels
             var tail = blocks.Skip(endIf + 1).ToList();
 
             var head = ToLines(blocks.Take(firstIf));
-            if (head.Count > 0 && await SendStaAndWaitAsync(head, false, token) != StaResult.Done)
+            if (head.Count > 0 && await SendStaAndWaitAsync(head, false, true, token) != StaResult.Done)
                 return;
 
             while (!token.IsCancellationRequested)
@@ -606,7 +616,7 @@ namespace DUC_GUI.ViewModels
                 lines.AddRange(ToLines(tail, lines.Count));
 
                 EngineStatus = $"Đang gắp vật ID={det.Id}";
-                var result = await SendStaAndWaitAsync(lines, false, token);
+                var result = await SendStaAndWaitAsync(lines, false, true, token);
                 if (result is StaResult.Rejected or StaResult.Cancelled) return;
                 if (result == StaResult.Aborted) LogUi("Lần gắp này thất bại – robot giữ vị trí, chờ vật tiếp theo.");
             }
@@ -623,7 +633,9 @@ namespace DUC_GUI.ViewModels
             finally { _cameraWaiter = null; }
         }
 
-        private async Task<StaResult> SendStaAndWaitAsync(List<object> lines, bool loop, CancellationToken token)
+        /// <param name="holdAfter">true: xong/ABORT thì robot giữ vị trí (HEAD, gắp vật - chờ vật tiếp theo);
+        /// false: quick stop, nhả khớp (chương trình thường, như bản gốc).</param>
+        private async Task<StaResult> SendStaAndWaitAsync(List<object> lines, bool loop, bool holdAfter, CancellationToken token)
         {
             if (lines.Count == 0 || token.IsCancellationRequested) return StaResult.Cancelled;
 
@@ -635,6 +647,7 @@ namespace DUC_GUI.ViewModels
                 Mode    = IsKineMode ? "Kine" : "Dyna",
                 Task    = IsP2PTask ? "P2P" : "Trajectory",
                 Exec    = loop ? "Loop" : "Once",
+                After   = holdAfter ? "Hold" : "Off",
                 Program = lines
             };
             LastTxJson = JsonSerializer.Serialize(packet, PrettyJson);
