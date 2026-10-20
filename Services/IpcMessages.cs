@@ -22,8 +22,7 @@ namespace DUC_GUI.Services
         public int[]    Ds    { get; set; } = new int[4]; // trạng thái CiA402 từng driver
         public long[][] In    { get; set; } = [];         // 4 x 9 trường CDHD_In_Type
         public long[][] Out   { get; set; } = [];         // 4 x 8 trường CDHD_Out_Type
-
-        public ushort   BeltRpm { get; set;}
+        public int      BeltRpm { get; set; }             // RPM băng tải từ PLC, có dấu
     }
 
     /// <summary>{"T":"ACK","Cmd":"STA","Ok":true,"Msg":"..."} – IPC trả lời từng lệnh.</summary>

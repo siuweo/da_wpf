@@ -61,6 +61,7 @@ namespace DUC_GUI.Services
                 foreach (double v in t.Q) row.Append(',').Append(v.ToString("F3", ci));
                 foreach (double v in t.P) row.Append(',').Append(v.ToString("F2", ci));
                 row.Append(',').Append(t.Lost).Append(',').Append(t.Ovr);
+                row.Append(',').Append(t.BeltRpm);
                 _writer.WriteLine(row.ToString());
 
                 if ((DateTime.Now - _lastFlush).TotalSeconds >= 1)
@@ -87,7 +88,7 @@ namespace DUC_GUI.Services
             for (int i = 1; i <= RobotParameters.NUM_DRIVERS; i++)
                 h.Append($",Out_Controlword_D{i},Out_Mode_D{i},Out_TargetPos_D{i},Out_ProfileVel_D{i}")
                  .Append($",Out_TargetVel_D{i},Out_TargetTorque_D{i},Out_DigitalOutputs_D{i},Out_TorqueOffset_D{i}");
-            h.Append(",IpcTimeMs,Mode,Halt,ProgramId,Line,Q1_deg,Q2_deg,Q3_mm,Q4_deg,X_mm,Y_mm,Z_mm,Theta_deg,LostFrames,Overruns");
+            h.Append(",IpcTimeMs,Mode,Halt,ProgramId,Line,Q1_deg,Q2_deg,Q3_mm,Q4_deg,X_mm,Y_mm,Z_mm,Theta_deg,LostFrames,Overruns,BeltRpm");
             return h.ToString();
         }
 

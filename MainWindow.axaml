@@ -293,7 +293,7 @@
 
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="Belt:" FontWeight="Bold" Foreground="#005A9E" VerticalAlignment="Center" Width="110"/>
                         <TextBlock Grid.Row="2" Grid.Column="1" Text="RPM =" VerticalAlignment="Center" Margin="5,0,2,0"/>
-                        <Border Grid.Row="2" Grid.Column="2" Classes="value"><TextBlock Text="{Binding BeltRpm, StringFormat='{}{0:F2} rpm'}" Foreground="#005A9E"/></Border>
+                        <Border Grid.Row="2" Grid.Column="2" Classes="value"><TextBlock Text="{Binding BeltRpm, StringFormat='{}{0} rpm'}" Foreground="#005A9E"/></Border>
                     </Grid>
                 </Border>
 

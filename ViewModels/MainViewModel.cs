@@ -72,8 +72,10 @@ namespace DUC_GUI.ViewModels
         // ===================================================================================
         // 4.5 TỐC ĐỘ QUAY CỦA BĂNG TẢI
         // ===================================================================================
-        private ushort _beltrpm;
-        public ushort BeltRpm {get => _beltrpm; private set => Set(ref _beltrpm, value); }
+        private int _beltRpm;
+        public int BeltRpm { get => _beltRpm; private set => Set(ref _beltRpm, value); }
+
+        // ===================================================================================
         // 5. TRẠNG THÁI KẾT NỐI / IPC
         // ===================================================================================
         private string _ipcAddress = RobotParameters.IpcIpAddress;
