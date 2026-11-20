@@ -1,0 +1,64 @@
+<Window x:Class="DUC_GUI.CameraViewWindow"
+        xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Camera D455 - RGB / Depth"
+        Width="1100"
+        Height="560"
+        MinWidth="480"
+        MinHeight="320"
+        Background="White">
+
+    <Window.Styles>
+        <Style Selector="Border.view">
+            <Setter Property="Background" Value="#1E1E1E"/>
+            <Setter Property="CornerRadius" Value="2"/>
+        </Style>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="2,2,2,4"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+        <!-- Địa chỉ camera service (camera/camera_service.py) -->
+        <Border DockPanel.Dock="Top" Background="#F0F0F0" Padding="6,4">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Classes="label" Margin="0,0,6,0" Text="Camera service:"/>
+                <Button x:Name="BtnConnect" DockPanel.Dock="Right" Width="100" MinHeight="24" Margin="6,0,0,0"
+                        Content="Ngắt" Click="BtnConnect_Click"/>
+                <TextBox x:Name="TxtUrl" Classes="input"/>
+            </DockPanel>
+        </Border>
+
+        <TextBlock x:Name="TxtStatus" DockPanel.Dock="Bottom" Margin="8,2,8,4"
+                   FontFamily="{StaticResource MonoFont}" Foreground="#444444"/>
+
+        <TabControl Margin="4,0,4,0" Padding="0,4,0,0">
+            <TabItem Header="RGB + Depth">
+                <Grid ColumnDefinitions="*,6,*" RowDefinitions="Auto,*">
+                    <TextBlock Grid.Column="0" Classes="caption" Text="RGB"/>
+                    <TextBlock Grid.Column="2" Classes="caption" Text="Depth (gần = đỏ, xa = xanh, đen = không đo được)"/>
+                    <Border Grid.Row="1" Grid.Column="0" Classes="view">
+                        <Image x:Name="ImgBothColor" Stretch="Uniform"/>
+                    </Border>
+                    <Border Grid.Row="1" Grid.Column="2" Classes="view">
+                        <Image x:Name="ImgBothDepth" Stretch="Uniform"/>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="RGB">
+                <Border Classes="view">
+                    <Image x:Name="ImgColor" Stretch="Uniform"/>
+                </Border>
+            </TabItem>
+            <TabItem Header="Depth">
+                <Border Classes="view">
+                    <Image x:Name="ImgDepth" Stretch="Uniform"/>
+                </Border>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

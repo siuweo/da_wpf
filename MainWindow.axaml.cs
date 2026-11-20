@@ -14,6 +14,7 @@ namespace DUC_GUI
         private readonly TelemetryCsvLogger _csv    = new();
         private readonly MainViewModel      _viewModel;
         private readonly ConsoleLogWindow   _logWindow = new();
+        private readonly CameraViewWindow   _cameraWindow = new();
         private bool _closing;
 
         public MainWindow()
@@ -52,6 +53,7 @@ namespace DUC_GUI
                 _csv.Dispose();
                 _ipc.Dispose();
                 _logWindow.Close();
+                _cameraWindow.CloseForShutdown();
                 if (Avalonia.Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
                     desktop.Shutdown();
                 else
@@ -64,5 +66,7 @@ namespace DUC_GUI
             if (_logWindow.IsVisible) _logWindow.Activate();
             else _logWindow.Show(this);
         }
+
+        private void MenuCamera_Click(object? sender, RoutedEventArgs e) => _cameraWindow.ShowStreaming(this);
     }
 }

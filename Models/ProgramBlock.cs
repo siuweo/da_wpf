@@ -4,7 +4,7 @@ using System.Text;
 
 namespace DUC_GUI.Models
 {
-    public enum ProgramBlockType { Move, Delay, Gpio, IfBranch, ElseBranch, EndIf }
+    public enum ProgramBlockType { Move, Line, Delay, Gpio, IfBranch, ElseBranch, EndIf }
 
     /// <summary>Lớp cơ sở cho tất cả các khối lệnh trong chương trình robot</summary>
     public abstract class ProgramBlock : INotifyPropertyChanged
@@ -30,6 +30,23 @@ namespace DUC_GUI.Models
         public string Time  { get; set; } = "1000";
         public override string DisplaySummary =>
             $"X={X}  Y={Y}  Z={Z}  Θ={Theta}  T={Time}ms";
+    }
+
+    // ===================================================================================
+    // LINE BLOCK: Đi THẲNG tới toạ độ (từ đích của khối trước) với tốc độ Speed mm/s.
+    //   IPC tự chia đoạn thẳng thành chuỗi điểm và phát cho driver mỗi 1 ms -> luôn chạy ở CSP.
+    // ===================================================================================
+    public class LineBlock : ProgramBlock
+    {
+        public override ProgramBlockType BlockType => ProgramBlockType.Line;
+        public string X     { get; set; } = "0";
+        public string Y     { get; set; } = "0";
+        public string Z     { get; set; } = "0";
+        public string Theta { get; set; } = "0";
+        public string Speed { get; set; } = "50";    // mm/s
+        public string Acc   { get; set; } = "500";   // mm/s^2
+        public override string DisplaySummary =>
+            $"X={X}  Y={Y}  Z={Z}  Θ={Theta}  v={Speed}mm/s";
     }
 
     // ===================================================================================

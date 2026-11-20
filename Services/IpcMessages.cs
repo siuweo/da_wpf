@@ -8,6 +8,7 @@ namespace DUC_GUI.Services
         public uint     Seq   { get; set; }
         public double   Ms    { get; set; }               // đồng hồ monotonic của IPC
         public string   Mode  { get; set; } = "OFFLINE";  // OFFLINE/IDLE/HOLD/RUN/HAND/CLOSING
+        public string   Drive { get; set; } = "PP";       // chế độ driver đang dùng: PP / CSP
         public bool     Halt  { get; set; }
         public int      Drv   { get; set; }               // số driver EtherCAT
         public int      Prog  { get; set; }               // Id chương trình đang chạy
