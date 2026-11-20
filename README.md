@@ -27,7 +27,7 @@ Gửi thư mục `bin/Release/net8.0/<rid>/publish/`. Nếu đã có bản build
 | `Program.cs` | Điểm bắt đầu, tự nhận hệ điều hành khi chạy |
 | `App.axaml(.cs)` | Theme, style chung, mở cửa sổ chính |
 | `DUC_GUI.csproj` | Cấu hình project, thư viện |
-| `app.manifest` | Thông tin cho Windows (Linux bỏ qua) |
+| `app.manifest.xml` | Thông tin cho Windows (Linux bỏ qua) |
 
 ### Robot
 | File | Mục đích |

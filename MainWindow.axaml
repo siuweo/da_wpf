@@ -20,6 +20,7 @@
             </MenuItem>
             <MenuItem Header="Window" FontSize="13" FontWeight="SemiBold">
                 <MenuItem Header="Console" Click="MenuConsole_Click"/>
+                <MenuItem Header="Camera" Click="MenuCamera_Click"/>
             </MenuItem>
         </Menu>
 
@@ -31,6 +32,11 @@
                     <TextBlock VerticalAlignment="Center">
                         <Run Text="IPC:" FontWeight="Bold"/>
                         <Run Text="{Binding IpcMode, Mode=OneWay}" FontWeight="Bold" Foreground="#005A9E"/>
+                    </TextBlock>
+                    <Rectangle Width="1" Fill="#C8C8C8"/>
+                    <TextBlock VerticalAlignment="Center" ToolTip.Tip="Chế độ driver IPC đang dùng (theo phản hồi FB)">
+                        <Run Text="Drive:" FontWeight="Bold"/>
+                        <Run Text="{Binding DriveActual, Mode=OneWay}" FontWeight="Bold" Foreground="#6A1B9A"/>
                     </TextBlock>
                     <Rectangle Width="1" Fill="#C8C8C8"/>
                     <TextBlock Text="{Binding StatusText}" VerticalAlignment="Center"/>
@@ -101,9 +107,11 @@
                                         <RadioButton Content="Kinematic" Grid.Row="2" Grid.Column="0" GroupName="ControlMode" FontWeight="Bold" IsChecked="{Binding IsKineMode}" Margin="25,8,0,3"/>
                                         <RadioButton Content="Dynamics" Grid.Row="2" Grid.Column="1" GroupName="ControlMode" FontWeight="Bold" IsChecked="{Binding IsDynaMode}" Margin="25,8,0,3"
                                                      IsEnabled="False" ToolTip.Tip="Chưa hỗ trợ – hiện chỉ điều khiển động học"/>
-                                        <RadioButton Content="Point-to-point" Grid.Row="3" Grid.Column="0" GroupName="RobotTask" FontWeight="Bold" IsChecked="{Binding IsP2PTask}" Margin="25,5,0,3"/>
-                                        <RadioButton Content="Trajectory" Grid.Row="3" Grid.Column="1" GroupName="RobotTask" FontWeight="Bold" IsChecked="{Binding IsTrajectoryTask}" Margin="25,5,0,3"
-                                                     IsEnabled="False" ToolTip.Tip="Chưa hỗ trợ – hiện chỉ có Point-to-point"/>
+                                        <!-- Chế độ driver đang dùng thật (FB). Chọn mặc định ở mục Nâng cao bên dưới. -->
+                                        <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Margin="25,5,0,3" VerticalAlignment="Center">
+                                            <Run Text="Driver đang dùng:" FontWeight="Bold"/>
+                                            <Run Text="{Binding DriveActual, Mode=OneWay}" FontWeight="Bold" Foreground="#6A1B9A"/>
+                                        </TextBlock>
                                         <RadioButton Content="Once" Grid.Row="4" Grid.Column="0" GroupName="ExecutionMode" FontWeight="Bold" IsChecked="{Binding IsOnceMode}" Margin="25,5,0,5"
                                                      ToolTip.Tip="Chương trình có IF/ELSE/END (camera) luôn chạy kiểu Once cho mỗi vật"/>
                                         <RadioButton Content="Loop" Grid.Row="4" Grid.Column="1" GroupName="ExecutionMode" FontWeight="Bold" IsChecked="{Binding IsLoopMode}" Margin="25,5,0,5"
@@ -111,10 +119,40 @@
                                     </Grid>
                                 </c:GroupBox>
 
+                                <!-- NÂNG CAO: chế độ driver mặc định + cài đặt CSP / Line. Đổi ở đây không gửi lệnh nào:
+                                     gói STA / HOM / JOG kế tiếp mang "Drive", IPC đổi chế độ ngay trước chuyển động đó. -->
+                                <Expander Header="Nâng cao: chế độ driver &amp; CSP" Margin="0,0,0,10" IsExpanded="False" HorizontalAlignment="Stretch">
+                                    <StackPanel Margin="0,4,0,0">
+                                        <DockPanel Margin="0,2" IsEnabled="{Binding CanChangeDrive}"
+                                                   ToolTip.Tip="Chế độ cho Move / Home / Jog. Khoá khi robot đang chạy (IPC chỉ đổi khi robot đứng yên).">
+                                            <TextBlock Text="Drive mặc định:" Classes="label"/>
+                                            <RadioButton GroupName="DriveMode" Content="PP" FontWeight="Bold" Margin="8,0" IsChecked="{Binding IsPpDrive, Mode=TwoWay}"
+                                                         ToolTip.Tip="Profile Position: driver tự lập profile tới đích"/>
+                                            <RadioButton GroupName="DriveMode" Content="CSP" FontWeight="Bold" Margin="8,0" IsChecked="{Binding IsCspDrive, Mode=TwoWay}"
+                                                         ToolTip.Tip="Cyclic Synchronous Position: IPC tự lập quỹ đạo, phát vị trí mỗi 1 ms"/>
+                                        </DockPanel>
+                                        <TextBlock Text="Khối LINE luôn chạy CSP, bất kể lựa chọn trên." FontSize="11" Foreground="Gray" Margin="0,0,0,4"/>
+
+                                        <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto">
+                                            <TextBlock Text="Gia tốc Line" Classes="label" ToolTip.Tip="mm/s² – lúc khởi hành / dừng của khối LINE mới thêm"/>
+                                            <TextBox Grid.Column="1" Text="{Binding LineAcc}" Classes="input"/>
+                                            <TextBlock Grid.Column="2" Text="Xoay Θ (°/s)" Classes="label" Margin="4,0,0,0" ToolTip.Tip="Tốc độ xoay Theta tối đa trong khối LINE"/>
+                                            <TextBox Grid.Column="3" Text="{Binding LineThetaSpeed}" Classes="input"/>
+                                            <TextBlock Grid.Row="1" Text="Dt (ms)" Classes="label"
+                                                       ToolTip.Tip="Khoảng cách thời gian giữa 2 điểm IPC tạo ra cho LINE (IPC nội suy giữa các điểm mỗi 1 ms)"/>
+                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding LineDtMs}" Classes="input"/>
+                                        </Grid>
+                                        <CheckBox Content="Chương trình thường xong: giữ vị trí (không nhả khớp)" IsChecked="{Binding HoldAfterProgram}" Margin="0,4,0,0"
+                                                  ToolTip.Tip="Mặc định nhả khớp như bản gốc. Chương trình có IF (camera) luôn giữ vị trí giữa các lần gắp."/>
+                                        <TextBlock Text="{Binding CycleStats}" FontSize="11" Foreground="Gray" Margin="0,4,0,0"
+                                                   ToolTip.Tip="CSP nhạy với trễ chu kỳ 1 ms và mất frame EtherCAT – theo dõi khi chạy robot thật"/>
+                                    </StackPanel>
+                                </Expander>
+
                                 <c:GroupBox Header="PROGRAM BLOCKS" Margin="0,5,0,0">
                                     <StackPanel Margin="4">
-                                        <!-- MOVE -->
-                                        <c:GroupBox Header="Move (Z thực tế)" Margin="0,0,0,5" Padding="4">
+                                        <!-- MOVE (P2P, nhanh, đường đi cong) / LINE (đi thẳng, CSP) -->
+                                        <c:GroupBox Header="Move / Line (Z thực tế)" Margin="0,0,0,5" Padding="4">
                                             <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto">
                                                 <TextBlock Text="X (mm)" Classes="label"/>
                                                 <TextBox Grid.Column="1" Text="{Binding InputX}" Classes="input"/>
@@ -124,10 +162,16 @@
                                                 <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding InputZ}" Classes="input"/>
                                                 <TextBlock Grid.Row="1" Grid.Column="2" Text="Theta (°)" Classes="label" Margin="4,0,0,0"/>
                                                 <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding InputTheta}" Classes="input"/>
-                                                <TextBlock Grid.Row="2" Text="Time (ms)" Classes="label"/>
+                                                <TextBlock Grid.Row="2" Text="Time (ms)" Classes="label" ToolTip.Tip="Chỉ cho MOVE"/>
                                                 <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding InputTime}" Classes="input"/>
-                                                <Button Grid.Row="3" Grid.ColumnSpan="4" Content="+ ADD MOVE" Margin="0,4,0,0" Height="26"
-                                                        Background="#1565C0" Foreground="White" FontWeight="Bold" Command="{Binding AddMoveBlockCommand}"/>
+                                                <TextBlock Grid.Row="2" Grid.Column="2" Text="Speed (mm/s)" Classes="label" Margin="4,0,0,0" ToolTip.Tip="Chỉ cho LINE"/>
+                                                <TextBox Grid.Row="2" Grid.Column="3" Text="{Binding InputSpeed}" Classes="input"/>
+                                                <UniformGrid Grid.Row="3" Grid.ColumnSpan="4" Columns="2" Margin="0,4,0,0">
+                                                    <Button Content="+ ADD MOVE" Margin="0,0,2,0" Height="26" Background="#1565C0" Foreground="White" FontWeight="Bold"
+                                                            Command="{Binding AddMoveBlockCommand}" ToolTip.Tip="Các khớp cùng tới đích trong Time ms – đường đi cong, nhanh"/>
+                                                    <Button Content="+ ADD LINE" Margin="2,0,0,0" Height="26" Background="#6A1B9A" Foreground="White" FontWeight="Bold"
+                                                            Command="{Binding AddLineBlockCommand}" ToolTip.Tip="Đi thẳng tới đích với Speed mm/s (chạy CSP)"/>
+                                                </UniformGrid>
                                             </Grid>
                                         </c:GroupBox>
 
@@ -247,9 +291,17 @@
                                         <TextBlock Text="Time (ms):" Grid.Row="4" Classes="label" Margin="0,5"/>
                                         <TextBox Text="{Binding InputTime}" Grid.Row="4" Grid.Column="1" Classes="input"/>
 
-                                        <Button Content="ADD TEACH POINT" Grid.Row="6" Grid.ColumnSpan="2" Margin="0,15,0,5" Height="35"
-                                                Background="SteelBlue" Foreground="White" FontWeight="Bold" FontSize="13"
-                                                Command="{Binding AddTeachPointCommand}" ToolTip.Tip="Tạo khối MOVE tại toạ độ điểm công tác hiện tại"/>
+                                        <TextBlock Text="Speed (mm/s):" Grid.Row="5" Classes="label" Margin="0,5"/>
+                                        <TextBox Text="{Binding InputSpeed}" Grid.Row="5" Grid.Column="1" Classes="input"/>
+
+                                        <UniformGrid Grid.Row="6" Grid.ColumnSpan="2" Columns="2" Margin="0,15,0,5">
+                                            <Button Content="ADD TEACH POINT" Margin="0,0,2,0" Height="35"
+                                                    Background="SteelBlue" Foreground="White" FontWeight="Bold" FontSize="13"
+                                                    Command="{Binding AddTeachPointCommand}" ToolTip.Tip="Tạo khối MOVE (dùng Time) tại toạ độ điểm công tác hiện tại"/>
+                                            <Button Content="ADD TEACH LINE" Margin="2,0,0,0" Height="35"
+                                                    Background="#6A1B9A" Foreground="White" FontWeight="Bold" FontSize="13"
+                                                    Command="{Binding AddTeachLineCommand}" ToolTip.Tip="Tạo khối LINE (đi thẳng tới đây, dùng Speed)"/>
+                                        </UniformGrid>
                                     </Grid>
                                 </c:GroupBox>
                             </StackPanel>
@@ -346,6 +398,14 @@
                                 <Border Background="#EAF4FB" BorderBrush="#2196F3" BorderThickness="2" CornerRadius="3" Margin="1" Padding="6,4">
                                     <StackPanel Orientation="Horizontal">
                                         <TextBlock Text="&#x1F4CD; MOVE  " FontWeight="Bold" Foreground="#1565C0" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding DisplaySummary}" VerticalAlignment="Center" Foreground="#333"/>
+                                    </StackPanel>
+                                </Border>
+                            </DataTemplate>
+                            <DataTemplate DataType="models:LineBlock">
+                                <Border Background="#F3E5F5" BorderBrush="#8E24AA" BorderThickness="2" CornerRadius="3" Margin="1" Padding="6,4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="&#x2197; LINE  " FontWeight="Bold" Foreground="#6A1B9A" VerticalAlignment="Center"/>
                                         <TextBlock Text="{Binding DisplaySummary}" VerticalAlignment="Center" Foreground="#333"/>
                                     </StackPanel>
                                 </Border>

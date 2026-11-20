@@ -16,6 +16,8 @@ namespace DUC_GUI.Models
         public const string IpcIpAddress = "192.168.1.19";   // "127.0.0.1" khi chạy scara_sim trong WSL
         public const int    IpcPort      = 8000;
         public const int    CameraPort   = 7500;             // Python Camera -> GUI (TCP)
+        // Hình ảnh D455 (RGB + depth, MJPEG) từ camera/camera_service.py - cửa sổ Window > Camera
+        public const string CameraViewUrl = "http://127.0.0.1:7501";
 
         // ===== KÍCH THƯỚC (mm) =====
         public const double A1 = 225.0;        // cánh tay 1
@@ -70,5 +72,11 @@ namespace DUC_GUI.Models
         public const double PickDownMs      = 300;
         public const double PickGripMs      = 250;
         public const double PickUpMs        = 300;
+
+        // ===== CSP / LINE (mặc định, chỉnh được trên GUI; giới hạn kiểm tra ở IPC - Robot_config_param.h) =====
+        public const double LineSpeed       = 50.0;    // mm/s
+        public const double LineAcc         = 500.0;   // mm/s^2
+        public const double LineThetaSpeed  = 60.0;    // độ/s
+        public const double LineDtMs        = 10.0;    // khoảng cách thời gian giữa 2 điểm IPC tạo ra
     }
 }

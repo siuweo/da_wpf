@@ -96,8 +96,25 @@ namespace DUC_GUI.ViewModels
         public string IpcMode
         {
             get => _ipcMode;
-            private set { if (Set(ref _ipcMode, value)) CommandManager.InvalidateRequerySuggested(); }
+            private set
+            {
+                if (!Set(ref _ipcMode, value)) return;
+                OnPropertyChanged(nameof(CanChangeDrive));
+                CommandManager.InvalidateRequerySuggested();
+            }
         }
+
+        /// <summary>Chế độ driver IPC đang dùng thật (từ phản hồi FB) - tin cái này, không tin lựa chọn trên GUI.</summary>
+        private string _driveActual = "PP";
+        public string DriveActual
+        {
+            get => _driveActual;
+            private set { if (Set(ref _driveActual, value)) OnPropertyChanged(nameof(IsDriveActualCsp)); }
+        }
+        public bool IsDriveActualCsp => DriveActual == "CSP";
+
+        private string _cycleStats = "";
+        public string CycleStats { get => _cycleStats; private set => Set(ref _cycleStats, value); }
 
         private bool _isHalted;
         public bool IsHalted { get => _isHalted; private set => Set(ref _isHalted, value); }
@@ -134,7 +151,12 @@ namespace DUC_GUI.ViewModels
         public bool IsProgramRunning
         {
             get => _isProgramRunning;
-            private set { if (Set(ref _isProgramRunning, value) && !value) EngineStatus = ""; }
+            private set
+            {
+                if (!Set(ref _isProgramRunning, value)) return;
+                OnPropertyChanged(nameof(CanChangeDrive));
+                if (!value) EngineStatus = "";
+            }
         }
 
         private string _engineStatus = "";
@@ -179,14 +201,27 @@ namespace DUC_GUI.ViewModels
             }
         }
 
-        // Kine/P2P là chế độ duy nhất đã có; Dyna/Trajectory để trống (IPC sẽ từ chối).
-        private bool _isKineMode = true, _isDynaMode, _isP2PTask = true, _isTrajectoryTask, _isOnceMode = true, _isLoopMode;
+        // Kine là chế độ duy nhất đã có; Dyna để trống (IPC sẽ từ chối).
+        private bool _isKineMode = true, _isDynaMode, _isOnceMode = true, _isLoopMode;
         public bool IsKineMode       { get => _isKineMode;       set => Set(ref _isKineMode, value); }
         public bool IsDynaMode       { get => _isDynaMode;       set => Set(ref _isDynaMode, value); }
-        public bool IsP2PTask        { get => _isP2PTask;        set => Set(ref _isP2PTask, value); }
-        public bool IsTrajectoryTask { get => _isTrajectoryTask; set => Set(ref _isTrajectoryTask, value); }
         public bool IsOnceMode       { get => _isOnceMode;       set => Set(ref _isOnceMode, value); }
         public bool IsLoopMode       { get => _isLoopMode;       set => Set(ref _isLoopMode, value); }
+
+        // Chế độ driver MẶC ĐỊNH cho Move / Home / Jog (mục Nâng cao). Không gửi lệnh gì khi đổi:
+        // mỗi gói STA/HOM/JOG mang trường "Drive", IPC đổi chế độ ngay trước chuyển động đó.
+        // Chương trình có khối Line luôn chạy CSP (Line cần IPC phát vị trí).
+        private bool _isCspDrive;
+        public bool IsCspDrive
+        {
+            get => _isCspDrive;
+            set { if (Set(ref _isCspDrive, value)) OnPropertyChanged(nameof(IsPpDrive)); }
+        }
+        public bool IsPpDrive { get => !_isCspDrive; set => IsCspDrive = !value; }
+        private string DefaultDrive => IsCspDrive ? "CSP" : "PP";
+
+        /// <summary>IPC từ chối đổi chế độ khi robot đang chạy -> khoá lựa chọn.</summary>
+        public bool CanChangeDrive => !IsProgramRunning && IpcMode != "RUN";
 
         // ===================================================================================
         // 7. NHẬP LIỆU CHO CÁC KHỐI LỆNH
@@ -196,6 +231,14 @@ namespace DUC_GUI.ViewModels
         public string InputZ     { get; set; } = "150";
         public string InputTheta { get; set; } = "0";
         public string InputTime  { get; set; } = "1000";
+        public string InputSpeed { get; set; } = RobotParameters.LineSpeed.ToString(Inv);   // Line, mm/s
+
+        // Cài đặt CSP / Line
+        public string LineAcc          { get; set; } = RobotParameters.LineAcc.ToString(Inv);
+        public string LineThetaSpeed   { get; set; } = RobotParameters.LineThetaSpeed.ToString(Inv);
+        public string LineDtMs         { get; set; } = RobotParameters.LineDtMs.ToString(Inv);
+        /// <summary>Chương trình thường (không IF) xong thì giữ vị trí thay vì nhả khớp.</summary>
+        public bool   HoldAfterProgram { get; set; }
 
         private string _inputDelayMs = "500";
         public string InputDelayMs { get => _inputDelayMs; set => Set(ref _inputDelayMs, value); }
@@ -264,7 +307,9 @@ namespace DUC_GUI.ViewModels
         public ICommand JogThetaPlusCommand       { get; }
         public ICommand JogThetaMinusCommand      { get; }
         public ICommand AddTeachPointCommand      { get; }
+        public ICommand AddTeachLineCommand       { get; }
         public ICommand AddMoveBlockCommand       { get; }
+        public ICommand AddLineBlockCommand       { get; }
         public ICommand AddDelayBlockCommand      { get; }
         public ICommand AddGpioBlockCommand       { get; }
         public ICommand AddIfBranchCommand        { get; }
@@ -303,8 +348,10 @@ namespace DUC_GUI.ViewModels
             JogThetaPlusCommand  = new RelayCommand(() => Jog("Theta", +1), () => CanJog(6));
             JogThetaMinusCommand = new RelayCommand(() => Jog("Theta", -1), () => CanJog(7));
             AddTeachPointCommand = new RelayCommand(ExecuteAddTeachPoint, () => IsConnectionConfirmed);
+            AddTeachLineCommand  = new RelayCommand(ExecuteAddTeachLine, () => IsConnectionConfirmed);
 
             AddMoveBlockCommand       = new RobotCommand(_ => ExecuteAddMoveBlock());
+            AddLineBlockCommand       = new RobotCommand(_ => ExecuteAddLineBlock());
             AddDelayBlockCommand      = new RobotCommand(_ => ExecuteAddDelayBlock());
             AddGpioBlockCommand       = new RobotCommand(_ => ProgramBlocks.Add(new GpioBlock { Pin = InputGpioPin, Value = IsGpioHigh ? 1 : 0 }));
             AddIfBranchCommand        = new RobotCommand(_ => ExecuteAddIfBranch());
@@ -370,6 +417,8 @@ namespace DUC_GUI.ViewModels
             DriveStatus = string.Join("  ", Enumerable.Range(0, Math.Min(t.Drv, t.Ds.Length))
                                                       .Select(i => $"D{i + 1}:{Cia402.Name(t.Ds[i])}")) +
                           (t.Lost > 0 ? $"  | mất frame: {t.Lost}" : "");
+            DriveActual = t.Drive;
+            CycleStats  = $"Trễ chu kỳ: {t.Ovr}   Mất frame: {t.Lost}";
             BeltRpm  = t.BeltRpm;
             UpdateRobotPose();
         }
@@ -413,7 +462,8 @@ namespace DUC_GUI.ViewModels
                     break;
                 case "HOM":
                     CancelProgram();
-                    SendSimple("HOM");
+                    if (IsConnectionConfirmed)
+                        _ = _ipc.SendAsync(new { Cmd = "HOM", Drive = DefaultDrive });
                     break;
             }
         }
@@ -483,7 +533,7 @@ namespace DUC_GUI.ViewModels
             if (!double.TryParse(JogStep, NumberStyles.Float, Inv, out double step) || step <= 0)
                 step = RobotParameters.JogStepDefault;
             step = Math.Min(step, RobotParameters.JogStepMax);
-            _ = _ipc.SendAsync(new { Cmd = "JOG", Axis = axis, Step = direction * step });
+            _ = _ipc.SendAsync(new { Cmd = "JOG", Axis = axis, Step = direction * step, Drive = DefaultDrive });
         }
 
         /// <summary>Handing/Jogging: lấy toạ độ điểm công tác hiện tại (Z thực tế) thành 1 khối MOVE.</summary>
@@ -497,6 +547,22 @@ namespace DUC_GUI.ViewModels
                 Time = time
             });
         }
+
+        /// <summary>Như trên nhưng thành khối LINE: robot sẽ đi thẳng tới điểm này (CSP).</summary>
+        private void ExecuteAddTeachLine()
+        {
+            ProgramBlocks.Add(new LineBlock
+            {
+                X = RobotX.ToString("F2", Inv), Y = RobotY.ToString("F2", Inv),
+                Z = RobotZ.ToString("F2", Inv), Theta = RobotTheta.ToString("F2", Inv),
+                Speed = PositiveOr(InputSpeed, RobotParameters.LineSpeed),
+                Acc   = PositiveOr(LineAcc, RobotParameters.LineAcc)
+            });
+        }
+
+        private static string PositiveOr(string text, double def) =>
+            (double.TryParse(text.Trim().Replace(',', '.'), NumberStyles.Float, Inv, out double v) && v > 0 ? v : def)
+                .ToString(Inv);
 
         // ===================================================================================
         // 14. THÊM KHỐI LỆNH
@@ -517,6 +583,17 @@ namespace DUC_GUI.ViewModels
             {
                 X = SanitizeNumber(InputX), Y = SanitizeNumber(InputY), Z = SanitizeNumber(InputZ),
                 Theta = SanitizeNumber(InputTheta), Time = ((int)tMs).ToString(Inv)
+            });
+        }
+
+        private void ExecuteAddLineBlock()
+        {
+            ProgramBlocks.Add(new LineBlock
+            {
+                X = SanitizeNumber(InputX), Y = SanitizeNumber(InputY), Z = SanitizeNumber(InputZ),
+                Theta = SanitizeNumber(InputTheta),
+                Speed = PositiveOr(InputSpeed, RobotParameters.LineSpeed),
+                Acc   = PositiveOr(LineAcc, RobotParameters.LineAcc)
             });
         }
 
@@ -586,10 +663,14 @@ namespace DUC_GUI.ViewModels
 
         private async Task RunBlocksAsync(List<ProgramBlock> blocks, CancellationToken token)
         {
+            if (!IsCspDrive && blocks.Any(b => b is LineBlock))
+                LogUi("Chương trình có khối LINE → các gói chứa LINE chạy ở chế độ CSP.");
+
             int firstIf = blocks.FindIndex(b => b is IfBranchBlock { IsFirstIf: true });
             if (firstIf < 0)
             {
-                await SendStaAndWaitAsync(ToLines(blocks), IsLoopMode, false, token);   // xong thì nhả khớp
+                // xong thì nhả khớp (như bản gốc), trừ khi chọn "giữ vị trí" ở mục Nâng cao
+                await SendStaAndWaitAsync(ToLines(blocks), DriveFor(blocks), IsLoopMode, HoldAfterProgram, token);
                 return;
             }
 
@@ -598,8 +679,9 @@ namespace DUC_GUI.ViewModels
                 throw new FormatException("Khối IF chưa có END tương ứng.");
             var tail = blocks.Skip(endIf + 1).ToList();
 
-            var head = ToLines(blocks.Take(firstIf));
-            if (head.Count > 0 && await SendStaAndWaitAsync(head, false, true, token) != StaResult.Done)
+            var headBlocks = blocks.Take(firstIf).ToList();
+            var head       = ToLines(headBlocks);
+            if (head.Count > 0 && await SendStaAndWaitAsync(head, DriveFor(headBlocks), false, true, token) != StaResult.Done)
                 return;
 
             while (!token.IsCancellationRequested)
@@ -613,12 +695,12 @@ namespace DUC_GUI.ViewModels
                     LogUi($"ID={det.Id} không khớp nhánh nào và không có ELSE → bỏ qua vật này.");
                     continue;
                 }
+                var rest  = blocks.Skip(bodyStart).Take(bodyEnd - bodyStart).Concat(tail).ToList();
                 var lines = new List<object> { PickLine(det) };
-                lines.AddRange(ToLines(blocks.Skip(bodyStart).Take(bodyEnd - bodyStart), lines.Count));
-                lines.AddRange(ToLines(tail, lines.Count));
+                lines.AddRange(ToLines(rest, lines.Count));
 
                 EngineStatus = $"Đang gắp vật ID={det.Id}";
-                var result = await SendStaAndWaitAsync(lines, false, true, token);
+                var result = await SendStaAndWaitAsync(lines, DriveFor(rest), false, true, token);
                 if (result is StaResult.Rejected or StaResult.Cancelled) return;
                 if (result == StaResult.Aborted) LogUi("Lần gắp này thất bại – robot giữ vị trí, chờ vật tiếp theo.");
             }
@@ -635,9 +717,13 @@ namespace DUC_GUI.ViewModels
             finally { _cameraWaiter = null; }
         }
 
+        /// <summary>Khối LINE cần IPC phát vị trí (CSP); còn lại theo lựa chọn mặc định.</summary>
+        private string DriveFor(IEnumerable<ProgramBlock> blocks) => blocks.Any(b => b is LineBlock) ? "CSP" : DefaultDrive;
+
         /// <param name="holdAfter">true: xong/ABORT thì robot giữ vị trí (HEAD, gắp vật - chờ vật tiếp theo);
         /// false: quick stop, nhả khớp (chương trình thường, như bản gốc).</param>
-        private async Task<StaResult> SendStaAndWaitAsync(List<object> lines, bool loop, bool holdAfter, CancellationToken token)
+        private async Task<StaResult> SendStaAndWaitAsync(List<object> lines, string drive, bool loop, bool holdAfter,
+                                                          CancellationToken token)
         {
             if (lines.Count == 0 || token.IsCancellationRequested) return StaResult.Cancelled;
 
@@ -647,9 +733,11 @@ namespace DUC_GUI.ViewModels
                 Cmd     = "STA",
                 Id      = id,
                 Mode    = IsKineMode ? "Kine" : "Dyna",
-                Task    = IsP2PTask ? "P2P" : "Trajectory",
+                Task    = "P2P",   // LINE nằm trong P2P; Task "Trajectory" (chuỗi điểm thô) chỉ dùng cho tools/csp_test.py
+                Drive   = drive,
                 Exec    = loop ? "Loop" : "Once",
                 After   = holdAfter ? "Hold" : "Off",
+                Dt      = ParseSetting(LineDtMs, "Dt (ms)"),
                 Program = lines
             };
             LastTxJson = JsonSerializer.Serialize(packet, PrettyJson);
@@ -706,10 +794,11 @@ namespace DUC_GUI.ViewModels
                 ? v
                 : throw new FormatException($"{what} = '{text}' không phải là số.");
 
-        /// <summary>Chuyển khối Move/Delay/GPIO thành các dòng trong "Program" của gói STA (bỏ qua IF/ELSE/END).</summary>
-        private static List<object> ToLines(IEnumerable<ProgramBlock> blocks, int startLine = 0)
+        /// <summary>Chuyển khối Move/Line/Delay/GPIO thành các dòng trong "Program" của gói STA (bỏ qua IF/ELSE/END).</summary>
+        private List<object> ToLines(IEnumerable<ProgramBlock> blocks, int startLine = 0)
         {
             var lines = new List<object>();
+            double thSpeed = ParseSetting(LineThetaSpeed, "Tốc độ xoay Theta (Line)");
             foreach (var block in blocks)
             {
                 int line = startLine + lines.Count + 1;
@@ -724,6 +813,19 @@ namespace DUC_GUI.ViewModels
                             Z     = ParseSetting(mb.Z, $"Dòng {line}: Z"),
                             Theta = ParseSetting(mb.Theta, $"Dòng {line}: Theta"),
                             Time  = ParseSetting(mb.Time, $"Dòng {line}: Time")
+                        });
+                        break;
+                    case LineBlock lb:
+                        lines.Add(new
+                        {
+                            Line    = line, Type = "Line",
+                            X       = ParseSetting(lb.X, $"Dòng {line}: X"),
+                            Y       = ParseSetting(lb.Y, $"Dòng {line}: Y"),
+                            Z       = ParseSetting(lb.Z, $"Dòng {line}: Z"),
+                            Theta   = ParseSetting(lb.Theta, $"Dòng {line}: Theta"),
+                            Speed   = ParseSetting(lb.Speed, $"Dòng {line}: Speed"),
+                            Acc     = ParseSetting(lb.Acc, $"Dòng {line}: Acc"),
+                            ThSpeed = thSpeed
                         });
                         break;
                     case DelayBlock db:
@@ -822,13 +924,14 @@ namespace DUC_GUI.ViewModels
                 var sb = new StringBuilder();
                 sb.AppendLine("# Robot Program File");
                 sb.AppendLine($"# Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
-                sb.AppendLine("# Format: Move|X|Y|Z|Theta|Time  Delay|ms  Gpio|Pin|Value  If|ID|IsFirst  Else  End");
+                sb.AppendLine("# Format: Move|X|Y|Z|Theta|Time  Line|X|Y|Z|Theta|Speed|Acc  Delay|ms  Gpio|Pin|Value  If|ID|IsFirst  Else  End");
                 sb.AppendLine("#");
                 foreach (var block in ProgramBlocks)
                 {
                     string? line = block switch
                     {
                         MoveBlock mb       => $"Move|{mb.X}|{mb.Y}|{mb.Z}|{mb.Theta}|{mb.Time}",
+                        LineBlock lb       => $"Line|{lb.X}|{lb.Y}|{lb.Z}|{lb.Theta}|{lb.Speed}|{lb.Acc}",
                         DelayBlock db      => $"Delay|{db.DelayMs}",
                         GpioBlock gb       => $"Gpio|{gb.Pin}|{gb.Value}",
                         IfBranchBlock ifb  => $"If|{ifb.ConditionId}|{(ifb.IsFirstIf ? 1 : 0)}",
@@ -894,6 +997,9 @@ namespace DUC_GUI.ViewModels
             return Arg(0, "") switch
             {
                 "Move"  => new MoveBlock { X = Arg(1, "0"), Y = Arg(2, "0"), Z = Arg(3, "0"), Theta = Arg(4, "0"), Time = Arg(5, "1000") },
+                "Line"  => new LineBlock { X = Arg(1, "0"), Y = Arg(2, "0"), Z = Arg(3, "0"), Theta = Arg(4, "0"),
+                                           Speed = Arg(5, RobotParameters.LineSpeed.ToString(Inv)),
+                                           Acc   = Arg(6, RobotParameters.LineAcc.ToString(Inv)) },
                 "Delay" => new DelayBlock { DelayMs = Arg(1, "500") },
                 "Gpio"  => new GpioBlock { Pin = IntArg(1, 2), Value = IntArg(2, 0) != 0 ? 1 : 0 },   // "OUT" cũ -> 0
                 "If"    => new IfBranchBlock { ConditionId = IntArg(1, 1), IsFirstIf = Arg(2, "0") == "1" },
