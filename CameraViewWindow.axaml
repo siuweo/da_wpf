@@ -4,8 +4,8 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Camera D455 - RGB / Depth"
-        Width="1100"
+        Title="Camera D455 - Tách vật / RGB / Depth"
+        Width="1200"
         Height="560"
         MinWidth="480"
         MinHeight="320"
@@ -37,6 +37,36 @@
                    FontFamily="{StaticResource MonoFont}" Foreground="#444444"/>
 
         <TabControl Margin="4,0,4,0" Padding="0,4,0,0">
+            <!-- Tách vật trên băng tải (camera/object_isolation.py): RGB + viền vật | bản đồ chiều cao | danh sách vật -->
+            <TabItem Header="Tách vật">
+                <DockPanel>
+                    <Border DockPanel.Dock="Top" Background="#F7F7F7" Padding="6,4" Margin="0,0,0,4">
+                        <DockPanel>
+                            <Button x:Name="BtnCalibrate" DockPanel.Dock="Left" MinHeight="24" Padding="10,2"
+                                    Content="Hiệu chỉnh băng tải" Click="BtnCalibrate_Click"
+                                    ToolTip.Tip="Đo lại mặt phẳng băng tải. Băng tải phải TRỐNG (không vật, không tay). Làm lại khi camera bị xê dịch."/>
+                            <TextBlock x:Name="TxtIsoState" Margin="10,0,0,0" VerticalAlignment="Center"
+                                       FontWeight="SemiBold" TextWrapping="Wrap"/>
+                        </DockPanel>
+                    </Border>
+                    <Grid ColumnDefinitions="2*,6,*,6,300" RowDefinitions="Auto,*">
+                        <TextBlock Grid.Column="0" Classes="caption" Text="RGB + vật đang theo dõi (#id, chiều cao)"/>
+                        <TextBlock Grid.Column="2" Classes="caption" Text="Chiều cao (ROI) – trắng: mask thô, đỏ: vật, cam: chạm biên"/>
+                        <TextBlock Grid.Column="4" Classes="caption" Text="Vật đã tách"/>
+                        <Border Grid.Row="1" Grid.Column="0" Classes="view">
+                            <Image x:Name="ImgIsoColor" Stretch="Uniform"/>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="2" Classes="view">
+                            <Image x:Name="ImgIsoHeight" Stretch="Uniform"/>
+                        </Border>
+                        <Border Grid.Row="1" Grid.Column="4" BorderBrush="#CCCCCC" BorderThickness="1" Padding="6">
+                            <ScrollViewer>
+                                <TextBlock x:Name="TxtObjects" FontFamily="{StaticResource MonoFont}" FontSize="12"/>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
+                </DockPanel>
+            </TabItem>
             <TabItem Header="RGB + Depth">
                 <Grid ColumnDefinitions="*,6,*" RowDefinitions="Auto,*">
                     <TextBlock Grid.Column="0" Classes="caption" Text="RGB"/>

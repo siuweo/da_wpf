@@ -42,6 +42,8 @@ Gửi thư mục `bin/Release/net8.0/<rid>/publish/`. Nếu đã có bản build
 | `Services/IpcClient.cs` | Kết nối TCP tới IPC: gửi lệnh, nhận ACK / sự kiện / phản hồi 50 Hz |
 | `Services/IpcMessages.cs` | Định dạng các gói tin từ IPC |
 | `Services/CameraServer.cs` | Nhận kết quả camera (TCP cổng 7500) |
+| `Services/MjpegStream.cs` | Đọc luồng hình MJPEG từ `camera/camera_service.py` (cổng 7501) |
+| `Services/CameraServiceClient.cs` | Tách vật: đọc `/status` (vật đã tách, hiệu chỉnh, độ trôi), gửi `/calibrate` |
 | `Services/TelemetryCsvLogger.cs` | Ghi phản hồi ra `Log/*.csv` |
 
 ### Hiển thị 3D
